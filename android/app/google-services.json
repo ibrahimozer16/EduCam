@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "964230873872",
+    "project_id": "educam-492e8",
+    "storage_bucket": "educam-492e8.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:964230873872:android:cec867fc54545c66a19b95",
+        "android_client_info": {
+          "package_name": "com.educam"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDxpCD3Gz9qgK2Rfh47vT_fBkOrY-uEoeg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

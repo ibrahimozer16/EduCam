@@ -8,3 +8,11 @@
 #   http://developer.android.com/guide/developing/tools/proguard.html
 
 # Add any project specific keep options here:
+
+# Proguard ayarları
+
+# Vision Camera için gerekli ayarlar
+-keep class com.mrousavy.camera.** { *; }
+
+# Firebase için gerekli ayarlar
+-keep class com.google.firebase.** { *; }
