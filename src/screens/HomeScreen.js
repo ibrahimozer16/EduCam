@@ -9,10 +9,11 @@ const HomeScreen = ({navigation}) => {
             {/* Üst Menü */}
             <View style={styles.header}>
                 <TouchableOpacity>
+                    <Text>  </Text>
                 </TouchableOpacity>
                 <Text style={styles.headerTitle}>EduCam</Text>
                 <TouchableOpacity>
-                    <Icon name="notifications-outline" size={30} color="#fff" />
+                    <Icon name="person-outline" size={30} color="#fff" />
                 </TouchableOpacity>
             </View>
 
