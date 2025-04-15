@@ -4,8 +4,4 @@ const defaultConfig = getDefaultConfig(__dirname);
 defaultConfig.resolver.assetExts.push('bin');
 defaultConfig.resolver.sourceExts.push('cjs');
 
-module.exports = mergeConfig(defaultConfig, {
-  transformer: {
-    assetPlugins: ['expo-asset/tools/hashAssetFiles'],
-  },
-});
+module.exports = mergeConfig(defaultConfig, {});
