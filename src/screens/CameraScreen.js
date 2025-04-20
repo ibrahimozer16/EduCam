@@ -1,50 +1,41 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
   StyleSheet,
-  Platform,
   PermissionsAndroid,
+  Platform,
   TouchableOpacity,
   Image,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { Camera, useCameraDevices } from 'react-native-vision-camera';
-import RNFS from 'react-native-fs';
-import * as tf from '@tensorflow/tfjs';
-import '@tensorflow/tfjs-backend-cpu';
-import '@tensorflow/tfjs-backend-webgl';
-import * as mobilenet from '@tensorflow-models/mobilenet';
 import { launchImageLibrary } from 'react-native-image-picker';
+import RNFS from 'react-native-fs';
+import Tflite from 'tflite-react-native';
+
+const tflite = new Tflite();
 
 export default function CameraScreen() {
   const cameraRef = useRef(null);
-  const modelRef = useRef(null);
   const [hasPermission, setHasPermission] = useState(false);
   const devices = useCameraDevices();
   const [selectedDevice, setSelectedDevice] = useState(null);
   const [photoUri, setPhotoUri] = useState(null);
   const [isCameraActive, setIsCameraActive] = useState(true);
-  const [model, setModel] = useState(null);
   const [prediction, setPrediction] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
 
-  // 📌 Kamera izinleri
   const requestAndroidPermissions = async () => {
     if (Platform.OS === 'android') {
-      await PermissionsAndroid.request(PermissionsAndroid.PERMISSIONS.CAMERA, {
-        title: 'Kamera İzni',
-        message: 'Uygulamanın kameraya erişmesine izin verin.',
-        buttonPositive: 'Tamam',
-      });
+      await PermissionsAndroid.request(PermissionsAndroid.PERMISSIONS.CAMERA);
     }
   };
 
-  // 📌 Kamera erişimi
   useEffect(() => {
     (async () => {
       if (Platform.OS === 'android') await requestAndroidPermissions();
-
       const status = await Camera.getCameraPermissionStatus();
       if (status !== 'authorized') {
         const newStatus = await Camera.requestCameraPermission();
@@ -55,7 +46,6 @@ export default function CameraScreen() {
     })();
   }, []);
 
-  // 📌 Kamera cihazı seçimi
   useEffect(() => {
     if (devices && devices.length > 0) {
       const back = devices.find(d => d.position === 'back');
@@ -64,46 +54,42 @@ export default function CameraScreen() {
   }, [devices]);
 
   useEffect(() => {
-    (async () => {
-      try {
-        if (modelRef.current) {
-          console.log("✅ Model daha önce yüklenmiş, tekrar yüklenmedi.");
-          setModel(modelRef.current);
-          return;
+    console.log('📷 Kamera cihazları:', devices);
+    console.log('🎯 Seçilen cihaz:', selectedDevice);
+  }, [devices, selectedDevice]);
+
+  useEffect(() => {
+    tflite.loadModel(
+      {
+        model: 'mobilenet_v1.tflite',
+        labels: 'labels.txt',
+        numThreads: 1,
+      },
+      (err, res) => {
+        if (err) {
+          console.error('🧨 Model yükleme hatası:', err);
+        } else {
+          console.log('✅ TFLite model yüklendi:', res);
         }
-  
-        console.log("⚙️ TensorFlow başlatılıyor...");
-        await tf.ready();
-        console.log("🟢 tf.ready tamamlandı");
-  
-        await tf.setBackend('cpu');
-        const backend = tf.getBackend();
-        console.log("🔧 Backend:", backend);
-  
-        console.time("model-load");
-        const loadedModel = await mobilenet.load({version: 2, alpha: 1});
-        console.timeEnd("model-load");
-  
-        modelRef.current = loadedModel;
-        setModel(loadedModel);
-        console.log("✅ MobileNet modeli yüklendi ve state'e kaydedildi");
-      } catch (e) {
-        console.error("🧨 Model yüklenirken hata:", e);
       }
-    })();
+    );
+
+    RNFS.readFileAssets('labels.txt')
+      .then(content => {
+        console.log('📄 Etiketler (ilk 10):', content.split('\n').slice(0, 10));
+      })
+      .catch(err => {
+        console.error('❌ labels.txt okunamadı:', err);
+      });
+
   }, []);
-  
 
-  
-
-  // 📸 Fotoğraf çek
   const takePhoto = async () => {
     if (cameraRef.current == null) return;
-
-    const photo = await cameraRef.current.takePhoto({
+    const photo = await cameraRef.current.takePhoto({ 
       qualityPrioritization: 'quality',
+      flash: 'off', 
     });
-
     const path = `file://${photo.path}`;
     setPhotoUri(path);
     setIsCameraActive(false);
@@ -111,39 +97,35 @@ export default function CameraScreen() {
   };
 
   const classifyPhoto = async () => {
-    console.log("🧪 model:", model);
-    console.log("🧪 photoUri:", photoUri);
-    if (!photoUri || !model) {
-      console.warn("⚠️ Model veya fotoğraf eksik!");
+    if (!photoUri) {
+      Alert.alert('Hata', 'Fotoğraf bulunamadı');
       return;
     }
-  
-    console.log("🔍 Fotoğraf URI:", photoUri);
-    setIsLoading(true);
-  
-    try {
-      const base64 = await RNFS.readFile(photoUri, 'base64');
-      console.log("📦 Base64 boyutu:", base64.length);
-  
-      // ❗ Buradaki Image yapısı DOM içindir, React Native'de çalışmaz
-      // Mobilde tfjs modeline doğrudan resim veremeyiz, workaround gerekir
-  
-      console.warn("⛔️ Mobil ortamda doğrudan img verilemez. decodeImage/Canvas kullanımı gerekir.");
-      // Burada dummy bir örnek dönüyoruz geçici olarak
-      const dummyTensor = tf.randomNormal([224, 224, 3]); // modelin beklentisi
-      const predictions = await model.classify(dummyTensor);
-  
-      console.log("📈 Tahminler:", predictions);
-      setPrediction(predictions[0]);
-    } catch (e) {
-      console.error("🧨 Tahmin hatası:", e);
-    }
-  
-    setIsLoading(false);
-  };
-  
 
-  // 🔄 Kameraya geri dön
+    setIsLoading(true);
+
+    tflite.runModelOnImage(
+      {
+        path: photoUri.replace('file://', ''),
+        imageMean: 127.5,
+        imageStd: 127.5,
+        numResults: 1,
+        threshold: 0.05,
+      },
+      (err, res) => {
+        if (err) {
+          console.error('🧨 Tahmin hatası:', err);
+        } else {
+          console.log('📊 Tahmin:', res);
+          if (res && res.length > 0) {
+            setPrediction(res[0]);
+          }
+        }
+        setIsLoading(false);
+      }
+    );
+  };
+
   const resetCamera = () => {
     setPhotoUri(null);
     setPrediction(null);
@@ -153,19 +135,14 @@ export default function CameraScreen() {
   const pickFromGallery = () => {
     launchImageLibrary({ mediaType: 'photo' }, (response) => {
       if (response.didCancel) {
-        console.log("❌ Kullanıcı iptal etti");
-      } else if (response.errorCode) {
-        console.error("📛 Galeri hatası:", response.errorMessage);
+        console.log("❌ Galeriden seçim iptal");
       } else if (response.assets && response.assets.length > 0) {
-        const image = response.assets[0];
-        console.log("🖼️ Galeriden seçilen foto:", image.uri);
-        setPhotoUri(image.uri);
+        setPhotoUri(response.assets[0].uri);
         setIsCameraActive(false);
         setPrediction(null);
       }
     });
   };
-  
 
   if (!hasPermission || !selectedDevice) {
     return (
@@ -177,7 +154,7 @@ export default function CameraScreen() {
 
   return (
     <View style={{ flex: 1 }}>
-      {isCameraActive && (
+      {isCameraActive && selectedDevice && (
         <Camera
           ref={cameraRef}
           style={StyleSheet.absoluteFill}
@@ -189,51 +166,37 @@ export default function CameraScreen() {
 
       {!photoUri ? (
         <View style={styles.buttonRow}>
-        <TouchableOpacity style={styles.captureButton} onPress={takePhoto}>
-          <Text style={styles.buttonText}>📸 Fotoğraf Çek</Text>
-        </TouchableOpacity>
-    
-        <TouchableOpacity style={styles.galleryButton} onPress={pickFromGallery}>
-          <Text style={styles.buttonText}>📁 Galeriden Seç</Text>
-        </TouchableOpacity>
-      </View>
-        
+          <TouchableOpacity style={styles.captureButton} onPress={takePhoto}>
+            <Text style={styles.buttonText}>📸 Fotoğraf Çek</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.galleryButton} onPress={pickFromGallery}>
+            <Text style={styles.buttonText}>📁 Galeriden Seç</Text>
+          </TouchableOpacity>
+        </View>
       ) : (
         <>
-          {/* Çekilen fotoğrafı tam ekran göster */}
-          <Image
-            source={{ uri: photoUri }}
-            style={StyleSheet.absoluteFill}
-            resizeMode="cover"
-          />
-
-          {/* Tahmin ve kontrol kutusu */}
+          <Image source={{ uri: photoUri }} style={StyleSheet.absoluteFill} resizeMode="cover" />
           <View style={styles.overlayBox}>
             {isLoading ? (
               <ActivityIndicator color="white" size="large" />
             ) : prediction ? (
               <>
-                <Text style={styles.predictionText}>🚀 {prediction.className}</Text>
+                <Text style={styles.predictionText}>🚀 {prediction.label}</Text>
                 <Text style={styles.predictionText}>
-                  🎯 Güven: {(prediction.probability * 100).toFixed(2)}%
+                  🎯 Güven: {(prediction.confidence * 100).toFixed(2)}%
                 </Text>
               </>
-            ) : model ? (
+            ) : (
               <TouchableOpacity onPress={classifyPhoto}>
                 <Text style={styles.buttonText}>🤖 Tahmin Et</Text>
               </TouchableOpacity>
-            ) : (
-              <Text style={styles.buttonText}>⏳ Model yükleniyor...</Text>
             )}
-
-            {/* Geri Dön */}
             <TouchableOpacity onPress={resetCamera}>
               <Text style={[styles.buttonText, { marginTop: 10 }]}>🔄 Geri Dön</Text>
             </TouchableOpacity>
           </View>
         </>
       )}
-
     </View>
   );
 }
@@ -249,14 +212,22 @@ const styles = StyleSheet.create({
     backgroundColor: '#00cec9',
     padding: 12,
     borderRadius: 10,
+  },
+  galleryButton: {
+    backgroundColor: '#6c5ce7',
+    padding: 12,
+    borderRadius: 10,
+  },
+  buttonRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-evenly',
     position: 'absolute',
     bottom: 40,
-    alignSelf: 'center',
+    width: '100%',
   },
   buttonText: {
     color: 'white',
     fontSize: 16,
-    textAlign: 'center',
   },
   overlayBox: {
     position: 'absolute',
@@ -273,17 +244,4 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 4,
   },
-  buttonRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-evenly',
-    position: 'absolute',
-    bottom: 40,
-    width: '100%',
-  },
-  galleryButton: {
-    backgroundColor: '#6c5ce7',
-    padding: 12,
-    borderRadius: 10,
-  },
-  
 });

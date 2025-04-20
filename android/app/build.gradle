@@ -11,11 +11,12 @@ def enableProguardInReleaseBuilds = false
 def jscFlavor = 'io.github.react-native-community:jsc-android:2026004.+'
 
 android {
-    ndkVersion "26.1.10909125"  // Güncellendi!
+    ndkVersion "26.1.10909125"
     buildToolsVersion rootProject.ext.buildToolsVersion
     compileSdk rootProject.ext.compileSdkVersion
 
     namespace "com.educam"
+
     defaultConfig {
         applicationId "com.educam"
         minSdkVersion rootProject.ext.minSdkVersion
@@ -23,6 +24,7 @@ android {
         versionCode 1
         versionName "1.0"
     }
+
     signingConfigs {
         debug {
             storeFile file('debug.keystore')
@@ -31,6 +33,7 @@ android {
             keyPassword 'android'
         }
     }
+
     buildTypes {
         debug {
             signingConfig signingConfigs.debug
@@ -41,18 +44,28 @@ android {
             proguardFiles getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro"
         }
     }
+
+    // 📌 TFLite model bozulmasın diye
+    aaptOptions {
+        noCompress "tflite"
+    }
+
+    sourceSets {
+        main {
+            assets.srcDirs += 'src/main/assets'
+        }
+    }
 }
 
 dependencies {
-    implementation platform('com.google.firebase:firebase-bom:33.10.0')
+    implementation project(':tflite-react-native') // 🔽 Burada eklenmeli
 
-    // 📌 Firebase Bağımlılıkları
+    implementation platform('com.google.firebase:firebase-bom:33.10.0')
     implementation 'com.google.firebase:firebase-analytics'
     implementation 'com.google.firebase:firebase-firestore'
     implementation 'com.google.firebase:firebase-storage'
     implementation 'com.google.firebase:firebase-auth'
 
-    // 📌 React Native Bağımlılıkları
     implementation("com.facebook.react:react-android")
 
     if (hermesEnabled.toBoolean()) {
