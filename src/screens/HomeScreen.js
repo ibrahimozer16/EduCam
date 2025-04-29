@@ -12,7 +12,7 @@ const HomeScreen = ({navigation}) => {
                     <Text>  </Text>
                 </TouchableOpacity>
                 <Text style={styles.headerTitle}>EduCam</Text>
-                <TouchableOpacity>
+                <TouchableOpacity onPress={() => navigation.navigate('Profile')}>
                     <Icon name="person-outline" size={30} color="#fff" />
                 </TouchableOpacity>
             </View>

@@ -14,6 +14,9 @@ import { Camera, useCameraDevices } from 'react-native-vision-camera';
 import { launchImageLibrary } from 'react-native-image-picker';
 import RNFS from 'react-native-fs';
 import Tflite from 'tflite-react-native';
+import translations from '../jsons/translations.json';
+import { db, auth } from '../firebase/firebase';
+import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 
 const tflite = new Tflite();
 
@@ -26,6 +29,7 @@ export default function CameraScreen() {
   const [isCameraActive, setIsCameraActive] = useState(true);
   const [prediction, setPrediction] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [saveLoading, setSaveLoading] = useState(false);
 
   const requestAndroidPermissions = async () => {
     if (Platform.OS === 'android') {
@@ -54,23 +58,15 @@ export default function CameraScreen() {
   }, [devices]);
 
   useEffect(() => {
-    console.log('📷 Kamera cihazları:', devices);
-    console.log('🎯 Seçilen cihaz:', selectedDevice);
-  }, [devices, selectedDevice]);
-
-  useEffect(() => {
     tflite.loadModel(
       {
-        model: 'mobilenet_v1.tflite',
+        model: 'mobilenetv2_finetuned_model.tflite',
         labels: 'labels.txt',
         numThreads: 1,
       },
       (err, res) => {
-        if (err) {
-          console.error('🧨 Model yükleme hatası:', err);
-        } else {
-          console.log('✅ TFLite model yüklendi:', res);
-        }
+        if (err) console.error('🧨 Model yükleme hatası:', err);
+        else console.log('✅ TFLite model yüklendi:', res);
       }
     );
 
@@ -78,22 +74,29 @@ export default function CameraScreen() {
       .then(content => {
         console.log('📄 Etiketler (ilk 10):', content.split('\n').slice(0, 10));
       })
-      .catch(err => {
-        console.error('❌ labels.txt okunamadı:', err);
-      });
-
+      .catch(err => console.error('❌ labels.txt okunamadı:', err));
   }, []);
 
   const takePhoto = async () => {
-    if (cameraRef.current == null) return;
-    const photo = await cameraRef.current.takePhoto({ 
+    if (!cameraRef.current) return;
+    const photo = await cameraRef.current.takePhoto({
       qualityPrioritization: 'quality',
-      flash: 'off', 
+      flash: 'off',
     });
     const path = `file://${photo.path}`;
     setPhotoUri(path);
     setIsCameraActive(false);
     setPrediction(null);
+  };
+
+  const pickFromGallery = () => {
+    launchImageLibrary({ mediaType: 'photo' }, (response) => {
+      if (!response.didCancel && response.assets?.length > 0) {
+        setPhotoUri(response.assets[0].uri);
+        setIsCameraActive(false);
+        setPrediction(null);
+      }
+    });
   };
 
   const classifyPhoto = async () => {
@@ -116,10 +119,7 @@ export default function CameraScreen() {
         if (err) {
           console.error('🧨 Tahmin hatası:', err);
         } else {
-          console.log('📊 Tahmin:', res);
-          if (res && res.length > 0) {
-            setPrediction(res[0]);
-          }
+          setPrediction(res?.[0] ?? null);
         }
         setIsLoading(false);
       }
@@ -132,25 +132,31 @@ export default function CameraScreen() {
     setIsCameraActive(true);
   };
 
-  const pickFromGallery = () => {
-    launchImageLibrary({ mediaType: 'photo' }, (response) => {
-      if (response.didCancel) {
-        console.log("❌ Galeriden seçim iptal");
-      } else if (response.assets && response.assets.length > 0) {
-        setPhotoUri(response.assets[0].uri);
-        setIsCameraActive(false);
-        setPrediction(null);
-      }
-    });
-  };
+  const saveToFirestore = async () => {
+    if (!prediction || !auth.currentUser) return;
 
-  if (!hasPermission || !selectedDevice) {
-    return (
-      <View style={styles.centered}>
-        <Text style={{ color: 'white' }}>Kamera yükleniyor...</Text>
-      </View>
-    );
-  }
+    try {
+      setSaveLoading(true);
+      const label = prediction.label.toLowerCase().trim();
+      const translation = translations[label] || label;
+      const userId = auth.currentUser.uid;
+      const userCollection = collection(db, 'users', userId, 'recognized_items');
+
+      await addDoc(userCollection, {
+        label_en: label,
+        label_tr: translation,
+        confidence: prediction.confidence,
+        timestamp: serverTimestamp(),
+        photoUrl: "",
+      });
+      Alert.alert('✅ Başarılı', 'Tahmin verisi Firebase\'e kaydedildi!');
+    } catch (err) {
+      console.error('🔥 Firestore kayıt hatası:', err);
+      Alert.alert('❌ Hata', 'Veri kaydedilemedi.');
+    } finally {
+      setSaveLoading(false);
+    }
+  };
 
   return (
     <View style={{ flex: 1 }}>
@@ -181,16 +187,21 @@ export default function CameraScreen() {
               <ActivityIndicator color="white" size="large" />
             ) : prediction ? (
               <>
-                <Text style={styles.predictionText}>🚀 {prediction.label}</Text>
                 <Text style={styles.predictionText}>
-                  🎯 Güven: {(prediction.confidence * 100).toFixed(2)}%
+                  📌 {translations[prediction.label] || prediction.label} ({(prediction.confidence * 100).toFixed(2)}%)
                 </Text>
+                <TouchableOpacity style={styles.saveButton} onPress={saveToFirestore}>
+                  <Text style={styles.buttonText}>
+                    {saveLoading ? '⏳ Kaydediliyor...' : '💾 Kaydet'}
+                  </Text>
+                </TouchableOpacity>
               </>
             ) : (
               <TouchableOpacity onPress={classifyPhoto}>
                 <Text style={styles.buttonText}>🤖 Tahmin Et</Text>
               </TouchableOpacity>
             )}
+
             <TouchableOpacity onPress={resetCamera}>
               <Text style={[styles.buttonText, { marginTop: 10 }]}>🔄 Geri Dön</Text>
             </TouchableOpacity>
@@ -242,6 +253,13 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 16,
     textAlign: 'center',
-    marginBottom: 4,
+    marginBottom: 8,
+  },
+  saveButton: {
+    backgroundColor: '#0984e3',
+    paddingVertical: 10,
+    paddingHorizontal: 18,
+    borderRadius: 10,
+    marginTop: 10,
   },
 });

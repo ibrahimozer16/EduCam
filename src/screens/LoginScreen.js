@@ -1,72 +1,117 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, Button, Alert, StyleSheet, KeyboardAvoidingView, Platform, TouchableWithoutFeedback, Keyboard } from 'react-native';
-import { getAuth, signInWithEmailAndPassword } from 'firebase/auth';
+import { 
+  View, 
+  Text, 
+  TextInput, 
+  TouchableOpacity, 
+  Alert, 
+  StyleSheet, 
+  TouchableWithoutFeedback, 
+  Keyboard,
+  ScrollView
+} from 'react-native';
+import { signInWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '../firebase/firebase';
 
-const LoginScreen = ({ navigation }) => {
+export default function LoginScreen({ navigation }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
 
   const handleLogin = async () => {
     try {
       await signInWithEmailAndPassword(auth, email, password);
-      Alert.alert('Başarılı', 'Giriş yapıldı!');
-      navigation.navigate('Main'); // Giriş başarılıysa Home'a git
+      Alert.alert('✅ Başarılı', 'Giriş yapıldı!');
+      navigation.reset({
+        index: 0,
+        routes: [{ name: 'Main' }],
+      });
     } catch (error) {
-      Alert.alert('Hata', error.message);
+      Alert.alert('❌ Hata', error.message);
     }
   };
 
   return (
-    <KeyboardAvoidingView 
-      behavior={Platform.OS === "ios" ? "padding" : "height"} 
-      style={styles.container}
-    >
-      <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+    <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+      <ScrollView 
+        contentContainerStyle={styles.container}
+        keyboardShouldPersistTaps="handled"
+      >
         <View style={styles.inner}>
-          <Text style={styles.title}>Giriş Yap</Text>
+          <Text style={styles.title}>EduCam Giriş</Text>
+
           <TextInput 
             style={styles.input} 
             placeholder="Email" 
-            onChangeText={setEmail} 
+            placeholderTextColor="#aaa"
             keyboardType="email-address"
+            autoCapitalize="none"
+            onChangeText={setEmail} 
+            value={email}
           />
           <TextInput 
             style={styles.input} 
             placeholder="Şifre" 
+            placeholderTextColor="#aaa"
             secureTextEntry 
             onChangeText={setPassword} 
+            value={password}
+            keyboardType='numeric'
           />
-          <Button title="Giriş Yap" onPress={handleLogin} />
-          <Button title="Kayıt Ol" onPress={() => navigation.navigate('Register')} />
+
+          <TouchableOpacity style={styles.loginButton} onPress={handleLogin}>
+            <Text style={styles.buttonText}>Giriş Yap</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity onPress={() => navigation.navigate('Register')}>
+            <Text style={styles.registerText}>Hesabın yok mu? Kayıt Ol</Text>
+          </TouchableOpacity>
         </View>
-      </TouchableWithoutFeedback>
-    </KeyboardAvoidingView>
+      </ScrollView>
+    </TouchableWithoutFeedback>
   );
-};
+}
 
 const styles = StyleSheet.create({
   container: { 
-    flex: 1, 
+    flexGrow: 1, 
+    backgroundColor: '#1e3a8a', 
     justifyContent: 'center', 
-    padding: 20 
+    paddingHorizontal: 30 
   },
   inner: {
     flex: 1,
     justifyContent: 'center',
   },
   title: { 
-    fontSize: 20, 
+    fontSize: 28, 
+    fontWeight: 'bold', 
+    color: 'white', 
     textAlign: 'center', 
-    marginBottom: 20 
+    marginBottom: 30 
   },
-  input: { 
-    height: 40, 
-    borderColor: 'gray', 
-    borderWidth: 1, 
-    marginBottom: 20, 
-    paddingHorizontal: 10 
-  }
+  input: {
+    height: 50,
+    backgroundColor: 'white',
+    borderRadius: 8,
+    paddingHorizontal: 15,
+    marginBottom: 20,
+    fontSize: 16,
+    color: '#1e3a8a',
+  },
+  loginButton: {
+    backgroundColor: '#0abde3',
+    paddingVertical: 15,
+    borderRadius: 8,
+    marginBottom: 15,
+  },
+  buttonText: { 
+    color: 'white', 
+    fontSize: 18, 
+    textAlign: 'center' 
+  },
+  registerText: { 
+    color: 'white', 
+    fontSize: 16, 
+    textAlign: 'center' 
+  },
 });
-
-export default LoginScreen;
