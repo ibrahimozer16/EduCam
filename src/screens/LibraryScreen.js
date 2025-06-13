@@ -1,7 +1,18 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { View, Text, StyleSheet, TextInput, FlatList, TouchableOpacity, ActivityIndicator } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TextInput,
+  FlatList,
+  TouchableOpacity,
+  ActivityIndicator,
+  Image,
+} from 'react-native';
 import { collection, getDocs, query, orderBy } from 'firebase/firestore';
-import { db, auth } from '../firebase/firebase';
+import firestore from '@react-native-firebase/firestore';
+import auth from '@react-native-firebase/auth';
+import storage from '@react-native-firebase/storage';
 import { useFocusEffect } from '@react-navigation/native';
 
 export default function LibraryScreen() {
@@ -9,14 +20,20 @@ export default function LibraryScreen() {
   const [filteredItems, setFilteredItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchText, setSearchText] = useState('');
-  const [sortOrder, setSortOrder] = useState('default'); // 'default' | 'asc' | 'desc'
+  const [sortOrder, setSortOrder] = useState('default');
 
   const fetchItems = async () => {
     try {
       setLoading(true);
-      const userId = auth.currentUser.uid;
-      const userCollection = collection(db, 'users', userId, 'recognized_items');
-      const snapshot = await getDocs(query(userCollection, orderBy('timestamp', 'desc')));
+      const userId = auth().currentUser?.uid;
+      if (!userId) throw new Error('Kullanıcı oturumu yok');
+
+      const userCollection = firestore()
+        .collection('users')
+        .doc(userId)
+        .collection('recognized_items');
+
+      const snapshot = await userCollection.orderBy('timestamp', 'desc').get();
 
       const fetchedItems = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       setItems(fetchedItems);
@@ -58,8 +75,15 @@ export default function LibraryScreen() {
 
   const renderItem = ({ item }) => (
     <View style={styles.card}>
+      {item.photoUrl && (
+        <Image
+          source={{ uri: item.photoUrl }}
+          style={{ width: '100%', height: 200, borderRadius: 8, marginBottom: 10 }}
+          resizeMode="cover"
+        />
+      )}
       <Text style={styles.label}>{item.label_tr || item.label_en}</Text>
-      <Text style={styles.confidence}>Güven: {(item.confidence * 100).toFixed(2)}%</Text>
+      <Text style={styles.confidence}>Doğruluk: {(item.confidence * 100).toFixed(2)}%</Text>
     </View>
   );
 

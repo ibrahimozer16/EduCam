@@ -1,12 +1,64 @@
-import { StyleSheet, Text, View } from 'react-native'
-import React from 'react'
+import React from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  FlatList
+} from 'react-native';
 
-export default function ExamsScreen() {
+const quizTypes = [
+  { id: '1', title: '🧩 Genel Sınav', screen: 'GeneralQuiz' },
+  { id: '2', title: '🧩 Mini Sınav', screen: 'MiniQuiz' },
+];
+
+export default function ExamsScreen({ navigation }) {
+  const renderItem = ({ item }) => (
+    <TouchableOpacity
+      style={styles.card}
+      onPress={() => navigation.navigate(item.screen)}>
+      <Text style={styles.cardText}>{item.title}</Text>
+    </TouchableOpacity>
+  );
+
   return (
-    <View>
-      <Text>ExamsScreen</Text>
+    <View style={styles.container}>
+      <Text style={styles.header}>📚 Quiz Türleri</Text>
+      <FlatList
+        data={quizTypes}
+        renderItem={renderItem}
+        keyExtractor={item => item.id}
+        contentContainerStyle={styles.list}
+      />
     </View>
-  )
+  );
 }
 
-const styles = StyleSheet.create({})
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#f5f6fa',
+    padding: 20,
+  },
+  header: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    marginBottom: 20,
+    color: '#2d3436',
+    alignSelf: 'center'
+  },
+  list: {
+    gap: 16
+  },
+  card: {
+    backgroundColor: '#74b9ff',
+    padding: 16,
+    borderRadius: 12,
+    elevation: 4
+  },
+  cardText: {
+    fontSize: 16,
+    color: 'white',
+    textAlign: 'center'
+  }
+});

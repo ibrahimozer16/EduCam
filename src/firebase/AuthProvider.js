@@ -1,6 +1,5 @@
 import React, { createContext, useEffect, useState } from 'react';
-import { onAuthStateChanged, signOut } from 'firebase/auth';
-import { auth } from './firebase';
+import auth from '@react-native-firebase/auth';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export const AuthContext = createContext();
@@ -10,7 +9,7 @@ export const AuthProvider = ({ children }) => {
   const [initializing, setInitializing] = useState(true);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+    const unsubscribe = auth().onAuthStateChanged(async (currentUser) => {
       if (currentUser) {
         setUser(currentUser);
         await AsyncStorage.setItem('isLoggedIn', 'true');
@@ -25,7 +24,7 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   const logout = async () => {
-    await signOut(auth);
+    await auth().signOut();
     await AsyncStorage.removeItem('isLoggedIn');
     setUser(null);
   };

@@ -1,20 +1,19 @@
 import React, { useState } from 'react';
-import { 
-  View, 
-  Text, 
-  TextInput, 
-  TouchableOpacity, 
-  Alert, 
-  StyleSheet, 
-  KeyboardAvoidingView, 
-  Platform, 
-  TouchableWithoutFeedback, 
-  Keyboard, 
-  ScrollView 
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  Alert,
+  StyleSheet,
+  KeyboardAvoidingView,
+  Platform,
+  TouchableWithoutFeedback,
+  Keyboard,
+  ScrollView,
 } from 'react-native';
-import { createUserWithEmailAndPassword } from 'firebase/auth';
-import { doc, setDoc } from 'firebase/firestore';
-import { auth, db } from '../firebase/firebase';
+import auth from '@react-native-firebase/auth';
+import firestore from '@react-native-firebase/firestore';
 import DateTimePicker from '@react-native-community/datetimepicker';
 
 export default function RegisterScreen({ navigation }) {
@@ -26,20 +25,20 @@ export default function RegisterScreen({ navigation }) {
   const [showDatePicker, setShowDatePicker] = useState(false);
 
   const handleRegister = async () => {
-    if (password.length !== 6 || !/^\d+$/.test(password)) {
-      Alert.alert('❗ Hata', 'Şifre 6 basamaklı sadece rakam içermelidir.');
+    if (password.length !== 6 || !/^[0-9]+$/.test(password)) {
+      Alert.alert('❗ Hata', 'Şifre 6 basamaklı ve sadece rakamlardan oluşmalıdır.');
       return;
     }
 
     try {
-      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      const userCredential = await auth().createUserWithEmailAndPassword(email, password);
       const user = userCredential.user;
 
-      await setDoc(doc(db, 'users', user.uid), {
+      await firestore().collection('users').doc(user.uid).set({
         fullName,
         gender,
         birthDate: birthDate.toISOString().split('T')[0],
-        email
+        email,
       });
 
       Alert.alert('✅ Başarılı', 'Kayıt tamamlandı!');
@@ -56,48 +55,48 @@ export default function RegisterScreen({ navigation }) {
   };
 
   return (
-    <KeyboardAvoidingView 
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'} 
+    <KeyboardAvoidingView
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       style={styles.container}
     >
       <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
         <ScrollView contentContainerStyle={styles.inner}>
           <Text style={styles.title}>EduCam Kayıt</Text>
 
-          <TextInput 
-            style={styles.input} 
-            placeholder="Ad Soyad" 
+          <TextInput
+            style={styles.input}
+            placeholder="Ad Soyad"
             placeholderTextColor="#aaa"
             onChangeText={setFullName}
             value={fullName}
           />
-          <TextInput 
-            style={styles.input} 
-            placeholder="Email" 
+          <TextInput
+            style={styles.input}
+            placeholder="Email"
             placeholderTextColor="#aaa"
             keyboardType="email-address"
             autoCapitalize="none"
             onChangeText={setEmail}
             value={email}
           />
-          <TextInput 
-            style={styles.input} 
-            placeholder="6 Haneli Şifre (Sadece Rakam)" 
+          <TextInput
+            style={styles.input}
+            placeholder="6 Haneli Şifre (Sadece Rakam)"
             placeholderTextColor="#aaa"
-            secureTextEntry 
+            secureTextEntry
             keyboardType="numeric"
             maxLength={6}
             onChangeText={setPassword}
             value={password}
           />
-          <TextInput 
-            style={styles.input} 
-            placeholder="Cinsiyet (Erkek/Kadın)" 
+          <TextInput
+            style={styles.input}
+            placeholder="Cinsiyet (Erkek/Kadın)"
             placeholderTextColor="#aaa"
             onChangeText={setGender}
             value={gender}
           />
-          
+
           <TouchableOpacity onPress={() => setShowDatePicker(true)} style={styles.dateButton}>
             <Text style={styles.buttonText}>
               Doğum Tarihi: {birthDate.toLocaleDateString('tr-TR')}
@@ -121,7 +120,6 @@ export default function RegisterScreen({ navigation }) {
           <TouchableOpacity onPress={() => navigation.navigate('Login')}>
             <Text style={styles.loginText}>Hesabın var mı? Giriş Yap</Text>
           </TouchableOpacity>
-
         </ScrollView>
       </TouchableWithoutFeedback>
     </KeyboardAvoidingView>

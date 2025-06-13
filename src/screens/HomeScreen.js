@@ -41,7 +41,7 @@ const HomeScreen = ({navigation}) => {
                     </TouchableOpacity>
 
                     <TouchableOpacity style={styles.card} onPress={() => navigation.navigate('Games')}>
-                        <Icon name="person-outline" size={40} color="#fff" />
+                        <Icon name="game-controller-outline" size={40} color="#fff" />
                         <Text style={styles.cardText}>Oyunlar</Text>
                     </TouchableOpacity>
                 </View>

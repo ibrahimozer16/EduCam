@@ -11,12 +11,13 @@ import {
   Alert,
 } from 'react-native';
 import { Camera, useCameraDevices } from 'react-native-vision-camera';
-import { launchImageLibrary } from 'react-native-image-picker';
 import RNFS from 'react-native-fs';
 import Tflite from 'tflite-react-native';
 import translations from '../jsons/translations.json';
-import { db, auth } from '../firebase/firebase';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { firestore, auth } from '../firebase/firebase';
+import storage from '@react-native-firebase/storage';
+import Tts from 'react-native-tts';
+import ImagePicker from 'react-native-image-crop-picker';
 
 const tflite = new Tflite();
 
@@ -56,11 +57,12 @@ export default function CameraScreen() {
       setSelectedDevice(back ?? devices[0]);
     }
   }, [devices]);
+  
 
   useEffect(() => {
     tflite.loadModel(
       {
-        model: 'mobilenetv2_finetuned_model.tflite',
+        model: 'resnet50_augmented_quant.tflite',
         labels: 'labels.txt',
         numThreads: 1,
       },
@@ -90,13 +92,23 @@ export default function CameraScreen() {
   };
 
   const pickFromGallery = () => {
-    launchImageLibrary({ mediaType: 'photo' }, (response) => {
-      if (!response.didCancel && response.assets?.length > 0) {
-        setPhotoUri(response.assets[0].uri);
+    ImagePicker.openPicker({
+      cropping: true,
+      freeStyleCropEnabled: true,
+      hideBottomControls: true,
+      mediaType: 'photo',
+      cropperToolbarTitle: 'İstediğiniz Alanı Seçin',
+    })
+      .then(image => {
+        setPhotoUri(image.path);
         setIsCameraActive(false);
         setPrediction(null);
-      }
-    });
+      })
+      .catch(err => {
+        if (err.code !== 'E_PICKER_CANCELLED') {
+          console.error('📁 Galeri hatası:', err);
+        }
+      });
   };
 
   const classifyPhoto = async () => {
@@ -104,9 +116,7 @@ export default function CameraScreen() {
       Alert.alert('Hata', 'Fotoğraf bulunamadı');
       return;
     }
-
     setIsLoading(true);
-
     tflite.runModelOnImage(
       {
         path: photoUri.replace('file://', ''),
@@ -116,11 +126,8 @@ export default function CameraScreen() {
         threshold: 0.05,
       },
       (err, res) => {
-        if (err) {
-          console.error('🧨 Tahmin hatası:', err);
-        } else {
-          setPrediction(res?.[0] ?? null);
-        }
+        if (err) console.error('🧨 Tahmin hatası:', err);
+        else setPrediction(res?.[0] ?? null);
         setIsLoading(false);
       }
     );
@@ -133,28 +140,45 @@ export default function CameraScreen() {
   };
 
   const saveToFirestore = async () => {
-    if (!prediction || !auth.currentUser) return;
-
+    if (!prediction || !auth().currentUser || !photoUri) return;
     try {
       setSaveLoading(true);
       const label = prediction.label.toLowerCase().trim();
       const translation = translations[label] || label;
-      const userId = auth.currentUser.uid;
-      const userCollection = collection(db, 'users', userId, 'recognized_items');
+      const userId = auth().currentUser.uid;
+      const timestamp = Date.now();
+      const filename = `prediction_${timestamp}.jpg`;
+      const ref = storage().ref(`predictions/${userId}/${filename}`);
+      await ref.putFile(photoUri);
+      const downloadURL = await ref.getDownloadURL();
 
-      await addDoc(userCollection, {
-        label_en: label,
-        label_tr: translation,
-        confidence: prediction.confidence,
-        timestamp: serverTimestamp(),
-        photoUrl: "",
-      });
-      Alert.alert('✅ Başarılı', 'Tahmin verisi Firebase\'e kaydedildi!');
+      await firestore()
+        .collection('users')
+        .doc(userId)
+        .collection('recognized_items')
+        .add({
+          label_en: label,
+          label_tr: translation,
+          confidence: prediction.confidence,
+          timestamp: firestore.FieldValue.serverTimestamp(),
+          photoUrl: downloadURL,
+        });
+
+      Alert.alert('✅ Başarılı', 'Tahmin ve fotoğraf kaydedildi!');
+      resetCamera();
     } catch (err) {
       console.error('🔥 Firestore kayıt hatası:', err);
       Alert.alert('❌ Hata', 'Veri kaydedilemedi.');
     } finally {
       setSaveLoading(false);
+    }
+  };
+
+  const speakPrediction = () => {
+    if (prediction) {
+      const text = translations[prediction.label] || prediction.label;
+      Tts.stop();
+      Tts.speak(text);
     }
   };
 
@@ -181,7 +205,9 @@ export default function CameraScreen() {
         </View>
       ) : (
         <>
-          <Image source={{ uri: photoUri }} style={StyleSheet.absoluteFill} resizeMode="cover" />
+          <View style={styles.photoBox}>
+            <Image source={{ uri: photoUri }} style={styles.previewImage} resizeMode="contain" />
+          </View>
           <View style={styles.overlayBox}>
             {isLoading ? (
               <ActivityIndicator color="white" size="large" />
@@ -191,9 +217,10 @@ export default function CameraScreen() {
                   📌 {translations[prediction.label] || prediction.label} ({(prediction.confidence * 100).toFixed(2)}%)
                 </Text>
                 <TouchableOpacity style={styles.saveButton} onPress={saveToFirestore}>
-                  <Text style={styles.buttonText}>
-                    {saveLoading ? '⏳ Kaydediliyor...' : '💾 Kaydet'}
-                  </Text>
+                  <Text style={styles.buttonText}>{saveLoading ? '⏳ Kaydediliyor...' : '💾 Kaydet'}</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.speakButton} onPress={speakPrediction}>
+                  <Text style={styles.buttonText}>🔊 Sesli Oku</Text>
                 </TouchableOpacity>
               </>
             ) : (
@@ -213,11 +240,16 @@ export default function CameraScreen() {
 }
 
 const styles = StyleSheet.create({
-  centered: {
+  photoBox: {
     flex: 1,
-    backgroundColor: 'black',
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: 'black',
+  },
+  previewImage: {
+    width: '100%',
+    aspectRatio: 3 / 4,
+    borderRadius: 10,
   },
   captureButton: {
     backgroundColor: '#00cec9',
@@ -259,6 +291,13 @@ const styles = StyleSheet.create({
     backgroundColor: '#0984e3',
     paddingVertical: 10,
     paddingHorizontal: 18,
+    borderRadius: 10,
+    marginTop: 10,
+  },
+  speakButton: {
+    backgroundColor: '#74b9ff',
+    paddingVertical: 10,
+    paddingHorizontal: 20,
     borderRadius: 10,
     marginTop: 10,
   },

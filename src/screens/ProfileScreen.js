@@ -1,19 +1,18 @@
 import React, { useEffect, useState } from 'react';
-import { 
-  View, 
-  Text, 
-  StyleSheet, 
-  TouchableOpacity, 
-  ActivityIndicator, 
-  Image, 
-  Alert, 
-  ScrollView 
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  ActivityIndicator,
+  Image,
+  Alert,
+  ScrollView,
 } from 'react-native';
-import { auth, db, storage } from '../firebase/firebase';
-import { doc, getDoc } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import firestore from '@react-native-firebase/firestore';
+import auth from '@react-native-firebase/auth';
+import storage from '@react-native-firebase/storage';
 import { launchImageLibrary } from 'react-native-image-picker';
-import { updateProfile } from 'firebase/auth';
 
 export default function ProfileScreen() {
   const [user, setUser] = useState(null);
@@ -22,19 +21,25 @@ export default function ProfileScreen() {
 
   useEffect(() => {
     const fetchUserData = async () => {
-      const currentUser = auth.currentUser;
-      if (currentUser) {
-        setUser(currentUser);
+      const currentUser = auth().currentUser;
 
-        try {
-          const docRef = doc(db, 'users', currentUser.uid);
-          const docSnap = await getDoc(docRef);
-          if (docSnap.exists()) {
-            setProfileData(docSnap.data());
-          }
-        } catch (error) {
-          console.error('Profil verisi alınamadı:', error);
+      console.log('🧪 auth().currentUser:', currentUser);
+      if (!currentUser) {
+        Alert.alert('Kullanıcı oturumu bulunamadı');
+        return;
+      }
+
+      setUser(currentUser);
+
+      try {
+        const docSnap = await firestore().collection('users').doc(currentUser.uid).get();
+        if (docSnap.exists) {
+          setProfileData(docSnap.data());
+        } else {
+          console.warn('🟡 Kullanıcı verisi bulunamadı (Firestore)');
         }
+      } catch (error) {
+        console.error('🔴 Firestore veri çekme hatası:', error);
       }
     };
 
@@ -43,29 +48,49 @@ export default function ProfileScreen() {
 
   const pickImageAndUpload = async () => {
     launchImageLibrary({ mediaType: 'photo' }, async (response) => {
-      if (!response.didCancel && response.assets?.length > 0) {
-        const asset = response.assets[0];
-        const uploadUri = asset.uri;
-        const filename = uploadUri.substring(uploadUri.lastIndexOf('/') + 1);
-        const storageRef = ref(storage, `profile_photos/${user.uid}/${filename}`);
+      if (response.didCancel) {
+        console.log('🟡 Kullanıcı seçim yapmadı.');
+        return;
+      }
 
-        try {
-          setUploading(true);
-          const img = await fetch(uploadUri);
-          const bytes = await img.blob();
-          await uploadBytes(storageRef, bytes);
-          const downloadURL = await getDownloadURL(storageRef);
+      if (!response.assets || response.assets.length === 0) {
+        console.warn('🟠 Seçilen dosya yok');
+        return;
+      }
 
-          await updateProfile(user, { photoURL: downloadURL });
-          setUser(prev => ({ ...prev, photoURL: downloadURL }));
+      const asset = response.assets[0];
+      const uploadUri = asset.uri;
 
-          Alert.alert('✅ Başarılı', 'Profil fotoğrafı güncellendi!');
-        } catch (error) {
-          console.error('Fotoğraf yükleme hatası:', error);
-          Alert.alert('❌ Hata', 'Fotoğraf yüklenemedi.');
-        } finally {
-          setUploading(false);
-        }
+      console.log('📷 Seçilen dosya URI:', uploadUri);
+
+      if (!uploadUri || !uploadUri.startsWith('file://')) {
+        console.error('⛔ Geçersiz URI: ', uploadUri);
+        Alert.alert('Hata', 'Geçersiz dosya URI.');
+        return;
+      }
+
+      try {
+        setUploading(true);
+
+        const filename = `profile_${Date.now()}.jpg`;
+        const ref = storage().ref(`profile_photos/${user.uid}/${filename}`);
+
+        console.log('📤 Yükleme başlıyor →', ref.fullPath);
+
+        await ref.putFile(uploadUri);
+
+        const downloadURL = await ref.getDownloadURL();
+        console.log('✅ Yükleme tamamlandı, downloadURL:', downloadURL);
+
+        await auth().currentUser.updateProfile({ photoURL: downloadURL });
+        setUser((prev) => ({ ...prev, photoURL: downloadURL }));
+
+        Alert.alert('✅ Başarılı', 'Profil fotoğrafı yüklendi!');
+      } catch (error) {
+        console.error('🔥 Fotoğraf yükleme hatası:', error);
+        Alert.alert('❌ Hata', 'Fotoğraf yüklenemedi.');
+      } finally {
+        setUploading(false);
       }
     });
   };
@@ -74,6 +99,7 @@ export default function ProfileScreen() {
     return (
       <View style={styles.centered}>
         <ActivityIndicator size="large" color="#1e3a8a" />
+        <Text style={{ color: 'white', marginTop: 10 }}>Kullanıcı yükleniyor...</Text>
       </View>
     );
   }
@@ -81,10 +107,10 @@ export default function ProfileScreen() {
   return (
     <ScrollView contentContainerStyle={styles.container}>
       <View style={styles.profileCard}>
-        {/* <Image
-          source={user.photoURL ? { uri: user.photoURL } : require('../assets/default_profile.png')}
+        <Image
+          source={{ uri: user.photoURL }}
           style={styles.avatar}
-        /> */}
+        />
 
         <Text style={styles.name}>{profileData.fullName || 'Ad Soyad'}</Text>
         <Text style={styles.infoText}>📧 {user.email}</Text>
@@ -92,7 +118,9 @@ export default function ProfileScreen() {
         <Text style={styles.infoText}>🚻 {profileData.gender}</Text>
 
         <TouchableOpacity style={styles.button} onPress={pickImageAndUpload}>
-          <Text style={styles.buttonText}>{uploading ? '⏳ Yükleniyor...' : '📸 Profil Fotoğrafı Yükle'}</Text>
+          <Text style={styles.buttonText}>
+            {uploading ? '⏳ Yükleniyor...' : '📸 Profil Fotoğrafı Yükle'}
+          </Text>
         </TouchableOpacity>
 
         <TouchableOpacity style={[styles.button, { backgroundColor: '#fd9644' }]}>
@@ -104,8 +132,19 @@ export default function ProfileScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flexGrow: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#1e3a8a', paddingVertical: 30 },
-  centered: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#1e3a8a' },
+  container: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#1e3a8a',
+    paddingVertical: 30,
+  },
+  centered: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#1e3a8a',
+  },
   profileCard: {
     backgroundColor: 'white',
     padding: 30,
@@ -125,8 +164,17 @@ const styles = StyleSheet.create({
     backgroundColor: '#dcdde1',
     marginBottom: 20,
   },
-  name: { fontSize: 24, fontWeight: 'bold', color: '#1e3a8a', marginBottom: 10 },
-  infoText: { fontSize: 16, color: '#636e72', marginBottom: 5 },
+  name: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#1e3a8a',
+    marginBottom: 10,
+  },
+  infoText: {
+    fontSize: 16,
+    color: '#636e72',
+    marginBottom: 5,
+  },
   button: {
     backgroundColor: '#0abde3',
     paddingVertical: 12,
@@ -134,5 +182,8 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     marginTop: 15,
   },
-  buttonText: { color: 'white', fontSize: 16 },
+  buttonText: {
+    color: 'white',
+    fontSize: 16,
+  },
 });

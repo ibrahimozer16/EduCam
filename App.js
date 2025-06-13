@@ -14,6 +14,11 @@ import GamesScreen from './src/screens/GamesScreen';
 import LoginScreen from './src/screens/LoginScreen';
 import RegisterScreen from './src/screens/RegisterScreen';
 import Icon from 'react-native-vector-icons/Ionicons';
+import GeneralQuizScreen from './src/screens/quizTypes/GeneralQuizScreen';
+import MiniQuizScreen from './src/screens/quizTypes/MiniQuizScreen';
+import PhotoWordGame from './src/screens/gameTypes/PhotoWordGame';
+import ImageWordMatch from './src/screens/gameTypes/ImageWordMatch';
+import PhotoWordGameModeScreen from './src/screens/gameTypes/PhotoWordGameModeScreen';
 
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -67,6 +72,11 @@ const AppNavigator = () => {
           <Stack.Screen name="Exams" component={ExamsScreen} />
           <Stack.Screen name="Library" component={LibraryScreen} />
           <Stack.Screen name="Games" component={GamesScreen} />
+          <Stack.Screen name="GeneralQuiz" component={GeneralQuizScreen} />
+          <Stack.Screen name="MiniQuiz" component={MiniQuizScreen} />
+          <Stack.Screen name="PhotoWordMode" component={PhotoWordGameModeScreen} />
+          <Stack.Screen name="PhotoWordGame" component={PhotoWordGame} />
+          <Stack.Screen name="ImageWord" component={ImageWordMatch} />
         </>
       ) : (
         <Stack.Screen name="Auth" component={AuthStack} />
