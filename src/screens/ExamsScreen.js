@@ -10,6 +10,8 @@ import {
 const quizTypes = [
   { id: '1', title: '🧩 Genel Sınav', screen: 'GeneralQuiz' },
   { id: '2', title: '🧩 Mini Sınav', screen: 'MiniQuiz' },
+  { id: '3', title: '🧩 Resimli Genel Sınav', screen: 'ImageGeneralQuiz' },
+  { id: '4', title: '🧩 Resimli Mini Sınav', screen: 'ImageMiniQuiz' },
 ];
 
 export default function ExamsScreen({ navigation }) {

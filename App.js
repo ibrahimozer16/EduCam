@@ -19,6 +19,15 @@ import MiniQuizScreen from './src/screens/quizTypes/MiniQuizScreen';
 import PhotoWordGame from './src/screens/gameTypes/PhotoWordGame';
 import ImageWordMatch from './src/screens/gameTypes/ImageWordMatch';
 import PhotoWordGameModeScreen from './src/screens/gameTypes/PhotoWordGameModeScreen';
+import ImageWordMatchScreen from './src/screens/gameTypes/ImageWordMatchScreen';
+import ImageMultipleChoiceMiniScreen from './src/screens/quizTypes/ImageMultipleChoiceMiniScreen';
+import ImageMultipleChoiceGeneralScreen from './src/screens/quizTypes/ImageMultipleChoiceGeneralScreen';
+import MatchByArrowModeScreen from './src/screens/gameTypes/MatchByArrowModeScreen';
+import ArrowMatchGame from './src/screens/gameTypes/ArrowMatchGame';
+import MemoryMatchModeScreen from './src/screens/gameTypes/MemoryMatchModeScreen';
+import MemoryMatchGame from './src/screens/gameTypes/MemoryMatchGame';
+import AudioGuessModeScreen from './src/screens/gameTypes/AudioGuessModeScreen';
+import AudioGuessGame from './src/screens/gameTypes/AudioGuessGame';
 
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -74,9 +83,19 @@ const AppNavigator = () => {
           <Stack.Screen name="Games" component={GamesScreen} />
           <Stack.Screen name="GeneralQuiz" component={GeneralQuizScreen} />
           <Stack.Screen name="MiniQuiz" component={MiniQuizScreen} />
+          <Stack.Screen name="ImageGeneralQuiz" component={ImageMultipleChoiceGeneralScreen} />
+          <Stack.Screen name="ImageMiniQuiz" component={ImageMultipleChoiceMiniScreen} />
           <Stack.Screen name="PhotoWordMode" component={PhotoWordGameModeScreen} />
           <Stack.Screen name="PhotoWordGame" component={PhotoWordGame} />
+          <Stack.Screen name="ImageWordMode" component={ImageWordMatchScreen} />
           <Stack.Screen name="ImageWord" component={ImageWordMatch} />
+          <Stack.Screen name="ArrowGameMode" component={MatchByArrowModeScreen} />
+          <Stack.Screen name="ArrowGame" component={ArrowMatchGame} />
+          <Stack.Screen name="MemoryGameMode" component={MemoryMatchModeScreen} />
+          <Stack.Screen name="MemoryGame" component={MemoryMatchGame} />
+          <Stack.Screen name="AudioGuessGameMode" component={AudioGuessModeScreen} />
+          <Stack.Screen name="AudioGuessGame" component={AudioGuessGame} />
+
         </>
       ) : (
         <Stack.Screen name="Auth" component={AuthStack} />

@@ -13,7 +13,25 @@ const games = [
     id: '2',
     title: 'Görsel-Kelime Eşleştirme',
     icon: 'swap-horizontal-outline',
-    screen: 'ImageWordMatch',
+    screen: 'ImageWordMode',
+  },
+  {
+    id: '3',
+    title: 'Ok İle Görsel-Kelime Eşleştirme',
+    icon: 'swap-horizontal-outline',
+    screen: 'ArrowGameMode',
+  },
+  {
+    id: '4',
+    title: 'Kart Eşleştirme',
+    icon: 'swap-horizontal-outline',
+    screen: 'MemoryGameMode',
+  },
+  {
+    id: '5',
+    title: 'Ses Tahmini Oyunu',
+    icon: 'swap-horizontal-outline',
+    screen: 'AudioGuessGameMode',
   },
   // ileri oyunlar eklenebilir
 ];
