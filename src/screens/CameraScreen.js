@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -9,6 +9,7 @@ import {
   Image,
   ActivityIndicator,
   Alert,
+  BackHandler
 } from 'react-native';
 import { Camera, useCameraDevices } from 'react-native-vision-camera';
 import RNFS from 'react-native-fs';
@@ -18,6 +19,7 @@ import { firestore, auth } from '../firebase/firebase';
 import storage from '@react-native-firebase/storage';
 import Tts from 'react-native-tts';
 import ImagePicker from 'react-native-image-crop-picker';
+import { useFocusEffect } from '@react-navigation/native';
 
 const tflite = new Tflite();
 
@@ -50,6 +52,25 @@ export default function CameraScreen() {
       }
     })();
   }, []);
+
+  useFocusEffect(
+      useCallback(() => {
+        const onBackPress = () => {
+          Alert.alert('Çıkış', 'Uygulamadan çıkmak istiyor musunuz?', [
+            { text: 'İptal', style: 'cancel' },
+            { text: 'Evet', onPress: () => BackHandler.exitApp() },
+          ]);
+          return true; // Geri tuşu davranışını durdur
+        };
+  
+        const subscription = BackHandler.addEventListener(
+          'hardwareBackPress',
+          onBackPress
+        );
+  
+        return () => subscription.remove(); // ❗️ removeEventListener yerine .remove()
+      }, [])
+    );
 
   useEffect(() => {
     if (devices && devices.length > 0) {

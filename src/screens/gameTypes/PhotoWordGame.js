@@ -31,6 +31,17 @@ export default function PhotoWordGame({ route, navigation }) {
 
       const snapshot = await query.get();
       const data = snapshot.docs.map(doc => doc.data());
+
+      const seenLabels = new Set();
+      const uniqueItems = [];
+      for (const item of data) {
+        const label = item.label_tr?.trim().toUpperCase(); // büyük harfe çevir
+        if (label && !seenLabels.has(label)) {
+          seenLabels.add(label);
+          uniqueItems.push({ ...item, label_tr: label }); // label'ı büyük harf olarak set et
+        }
+      }
+
       const shuffled = data.sort(() => Math.random() - 0.5).slice(0, 5);
       setQuestions(shuffled);
     };
@@ -40,7 +51,7 @@ export default function PhotoWordGame({ route, navigation }) {
 
   useEffect(() => {
     if (questions.length > 0) {
-      const currentWord = questions[currentIndex].label_tr;
+      const currentWord = questions[currentIndex].label_tr.toUpperCase();
       const letters = currentWord.split('').sort(() => Math.random() - 0.5);
       setShuffledLetters(letters);
       setUserInput('');
@@ -59,20 +70,45 @@ export default function PhotoWordGame({ route, navigation }) {
 
   const handleCheck = () => {
     const correctWord = questions[currentIndex].label_tr;
-    if (userInput.toLowerCase() === correctWord.toLowerCase()) {
+    if (userInput.toUpperCase() === correctWord.toUpperCase()) {
       setScore(prev => prev + 10);
       if (currentIndex + 1 < questions.length) {
         setCurrentIndex(prev => prev + 1);
       } else {
+        saveGameResult();
         Alert.alert('Tebrikler!', `Oyun bitti. Toplam Puan: ${score + 10}`, [
           { text: 'Tekrar Oyna', onPress: () => restartGame() },
-          { text: 'Geri Dön', onPress: () => navigation.goBack() },
+          { text: 'Geri Dön', onPress: () => navigation.navigate('Games') },
         ]);
       }
     } else {
       Alert.alert('Yanlış', 'Lütfen tekrar deneyin.');
     }
   };
+
+  const saveGameResult = async () => {
+    const uid = auth().currentUser?.uid;
+    if (!uid) return;
+
+    try {
+      await firestore()
+        .collection('users')
+        .doc(uid)
+        .collection('game_results')
+        .add({
+          type: 'Fotoğraftan Kelime Tahmini',
+          mode: mode,
+          score: score,
+          total: questions.length * 10,
+          date: firestore.FieldValue.serverTimestamp(),
+        });
+
+      console.log('✅ Fotoğraf-Kelime Oyunu sonucu kaydedildi.');
+    } catch (err) {
+      console.error('❌ Oyun sonucu kaydedilemedi:', err);
+    }
+  };
+
 
   const handleDelete = () => {
     if (userInput.length === 0) return;

@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, Image, StyleSheet, ScrollView } from 'react-native';
 import firestore from '@react-native-firebase/firestore';
+import auth from '@react-native-firebase/auth';
 import Icon from 'react-native-vector-icons/Ionicons';
 import Tts from 'react-native-tts';
 
@@ -45,6 +46,46 @@ export default function ImageMultipleChoiceGeneralScreen({ navigation }) {
 
     fetchQuestions();
   }, []);
+
+  useEffect(() => {
+  if (showResult) {
+    const saveResult = async () => {
+      const uid = auth().currentUser?.uid;
+      if (!uid) return;
+
+      const total = questions.length * 10;
+
+      // Feedback mesajını doğrudan burada belirleyelim
+      let feedback = '';
+      if (score >= 80) feedback = '🌟 Mükemmel!';
+      else if (score >= 60) feedback = '👍 İyi iş!';
+      else if (score >= 30) feedback = '🔄 Geliştirmen gerek!';
+      else feedback = '😅 Daha çok çalışmalısın!';
+
+      try {
+        await firestore()
+          .collection('users')
+          .doc(uid)
+          .collection('exam_results')
+          .add({
+            type: 'Resimli Genel Sınav',
+            mode: 'general',
+            score: score,
+            total: total,
+            feedback: feedback,
+            date: firestore.FieldValue.serverTimestamp(),
+          });
+
+        console.log('✅ Görsel şık seçme sınav sonucu kaydedildi.');
+      } catch (err) {
+        console.error('❌ Firestore kayıt hatası:', err);
+      }
+    };
+
+    saveResult();
+  }
+}, [showResult, score, questions.length]);
+
 
   const shuffleArray = (array) => [...array].sort(() => Math.random() - 0.5);
 

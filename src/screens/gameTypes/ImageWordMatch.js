@@ -38,16 +38,57 @@ export default function ImageWordMatchScreen({ route }) {
     fetchData();
   }, [mode]);
 
+  const getFeedback = (puan) => {
+    if (puan === 50) return '🎯 Mükemmel eşleştirme!';
+    if (puan >= 30) return '👍 Gayet başarılı!';
+    return '🧠 Daha dikkatli olmalısın.';
+  };
+
+  const saveResult = async (puan) => {
+    const uid = auth().currentUser?.uid;
+    if (!uid) return;
+
+    try {
+      await firestore()
+        .collection('users')
+        .doc(uid)
+        .collection('game_results')
+        .add({
+          type: 'Görsel-Kelime Eşleştirme Oyunu',
+          mode: mode,
+          score: puan,
+          total: 50,
+          feedback: getFeedback(puan),
+          date: firestore.FieldValue.serverTimestamp(),
+        });
+
+      console.log('✅ Görsel-Kelime eşleştirme sonucu kaydedildi.');
+    } catch (err) {
+      console.error('❌ Firestore kayıt hatası:', err);
+    }
+  };
+
+
   const speak = t => {
     Tts.stop();
     Tts.speak(t, { language: 'tr-TR' });
   };
 
   const checkMatch = () => {
-    const correct = items.every(it => it.label === it.correctLabel);
+    const correctCount = items.filter(it => it.label === it.correctLabel).length;
+    const score = correctCount * 10;
+    const isPerfect = correctCount === items.length;
+
     items.forEach(it => speak(it.label));
-    Alert.alert(correct ? 'Tebrikler!' : 'Yanlış!', correct ? 'Hepsi doğru!' : 'Bazıları hatalı.');
+
+    saveResult(score); // sonucu Firestore'a kaydet
+
+    Alert.alert(
+      isPerfect ? 'Tebrikler!' : 'Sonuçlar',
+      `${isPerfect ? 'Hepsi doğru!' : `Doğru eşleşme sayısı: ${correctCount}`} \nPuan: ${score} / 50`,
+    );
   };
+
 
   const renderItem = ({ item, drag, isActive }) => (
     <View style={[styles.row, isActive && { opacity: 0.8 }]}>

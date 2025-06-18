@@ -1,15 +1,35 @@
-import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Image, ScrollView } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
+import React, { useCallback } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, Image, ScrollView, BackHandler, Alert } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 
 const HomeScreen = ({navigation}) => {
+
+    useFocusEffect(
+    useCallback(() => {
+      const onBackPress = () => {
+        Alert.alert('Çıkış', 'Uygulamadan çıkmak istiyor musunuz?', [
+          { text: 'İptal', style: 'cancel' },
+          { text: 'Evet', onPress: () => BackHandler.exitApp() },
+        ]);
+        return true; // Geri tuşu davranışını durdur
+      };
+
+      const subscription = BackHandler.addEventListener(
+        'hardwareBackPress',
+        onBackPress
+      );
+
+      return () => subscription.remove(); // ❗️ removeEventListener yerine .remove()
+    }, [])
+  );
 
     return (
         <View style={styles.container}>
             {/* Üst Menü */}
             <View style={styles.header}>
                 <TouchableOpacity>
-                    <Text>  </Text>
+                    <Text>         </Text>
                 </TouchableOpacity>
                 <Text style={styles.headerTitle}>EduCam</Text>
                 <TouchableOpacity onPress={() => navigation.navigate('Profile')}>
@@ -19,7 +39,7 @@ const HomeScreen = ({navigation}) => {
 
             {/* İçerik Alanı */}
             <ScrollView contentContainerStyle={styles.content}>
-                <Text style={styles.sectionTitle}>Hoşgeldin!</Text>
+                <Text style={styles.sectionTitle}>Anasayfa</Text>
 
                 {/* Hızlı Erişim Kartları */}
                 <View style={styles.cardContainer}>
@@ -45,6 +65,13 @@ const HomeScreen = ({navigation}) => {
                         <Text style={styles.cardText}>Oyunlar</Text>
                     </TouchableOpacity>
                 </View>
+
+                <View style={styles.cardContainer}>
+                    <TouchableOpacity style={styles.card} onPress={() => navigation.navigate('Results')}>
+                        <Icon name="stats-chart-outline" size={40} color="#fff" />
+                        <Text style={styles.cardText}>Sonuçlar</Text>
+                    </TouchableOpacity>
+                </View>
             </ScrollView>
         </View>
     );
@@ -66,7 +93,7 @@ const styles = StyleSheet.create({
     },
     headerTitle: {
         color: '#fff',
-        fontSize: 22,
+        fontSize: 30,
         fontWeight: 'bold',
     },
     content: {
@@ -74,7 +101,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     sectionTitle: {
-        fontSize: 20,
+        fontSize: 30,
         fontWeight: 'bold',
         marginBottom: 15,
         color: '#1e3a8a',

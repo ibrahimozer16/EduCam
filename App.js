@@ -28,6 +28,12 @@ import MemoryMatchModeScreen from './src/screens/gameTypes/MemoryMatchModeScreen
 import MemoryMatchGame from './src/screens/gameTypes/MemoryMatchGame';
 import AudioGuessModeScreen from './src/screens/gameTypes/AudioGuessModeScreen';
 import AudioGuessGame from './src/screens/gameTypes/AudioGuessGame';
+import MatchTruthModeScreen from './src/screens/gameTypes/MatchTruthModeScreen';
+import MatchTruthGame from './src/screens/gameTypes/MatchTruthGame';
+import PhotoSpeechModeScreen from './src/screens/gameTypes/PhotoSpeechGameMode';
+import PhotoSpeechGame from './src/screens/gameTypes/PhotoSpeechGame';
+import ChangePasswordScreen from './src/screens/ChangePasswordScreen';
+import ResultsScreen from './src/screens/ResultsScreen';
 
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -48,9 +54,9 @@ const MainTabNavigator = () => (
       tabBarStyle: { backgroundColor: '#fff', paddingBottom: 5 },
     })}
   >
-    <Tab.Screen name="Camera" component={CameraScreen} />
-    <Tab.Screen name="Home" component={HomeScreen} />
-    <Tab.Screen name="Settings" component={SettingScreen} />
+    <Tab.Screen name="Camera" component={CameraScreen} options={{headerShown: false}} />
+    <Tab.Screen name="Home" component={HomeScreen} options={{headerShown: false}} />
+    <Tab.Screen name="Settings" component={SettingScreen} options={{headerShown: false}} />
   </Tab.Navigator>
 );
 
@@ -81,6 +87,8 @@ const AppNavigator = () => {
           <Stack.Screen name="Exams" component={ExamsScreen} />
           <Stack.Screen name="Library" component={LibraryScreen} />
           <Stack.Screen name="Games" component={GamesScreen} />
+          <Stack.Screen name="Results" component={ResultsScreen} />
+          <Stack.Screen name="ChangePassword" component={ChangePasswordScreen} />
           <Stack.Screen name="GeneralQuiz" component={GeneralQuizScreen} />
           <Stack.Screen name="MiniQuiz" component={MiniQuizScreen} />
           <Stack.Screen name="ImageGeneralQuiz" component={ImageMultipleChoiceGeneralScreen} />
@@ -95,6 +103,10 @@ const AppNavigator = () => {
           <Stack.Screen name="MemoryGame" component={MemoryMatchGame} />
           <Stack.Screen name="AudioGuessGameMode" component={AudioGuessModeScreen} />
           <Stack.Screen name="AudioGuessGame" component={AudioGuessGame} />
+          <Stack.Screen name="MatchTruthMode" component={MatchTruthModeScreen} />
+          <Stack.Screen name="MatchTruth" component={MatchTruthGame} />
+          <Stack.Screen name="PhotoSpeechMode" component={PhotoSpeechModeScreen} />
+          <Stack.Screen name="PhotoSpeech" component={PhotoSpeechGame} />  
 
         </>
       ) : (

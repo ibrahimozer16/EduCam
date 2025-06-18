@@ -64,6 +64,40 @@ export default function ImageMultipleChoiceMiniScreen({ navigation }) {
     fetchQuestions();
   }, [userId]);
 
+  useEffect(() => {
+    if (showResult) {
+      const saveResult = async () => {
+        const uid = auth().currentUser?.uid;
+        if (!uid) return;
+
+        const total = questions.length * 10;
+        const feedback = getFeedbackText(score);
+
+        try {
+          await firestore()
+            .collection('users')
+            .doc(uid)
+            .collection('exam_results')
+            .add({
+              type: 'Resimli Mini Sınav',
+              mode: 'mini',
+              score: score,
+              total: total,
+              feedback: feedback,
+              date: firestore.FieldValue.serverTimestamp(),
+            });
+
+          console.log('✅ Mini görsel şıklı sınav sonucu kaydedildi.');
+        } catch (err) {
+          console.error('❌ Firestore kayıt hatası:', err);
+        }
+      };
+
+      saveResult();
+    }
+  }, [showResult, score, questions.length]);
+
+
   const shuffleArray = array => [...array].sort(() => Math.random() - 0.5);
 
   const speak = (text) => {

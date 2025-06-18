@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -18,7 +18,7 @@ export default function AudioGuessGame({ route, navigation }) {
   const [questions, setQuestions] = useState([]);
   const [current, setCurrent] = useState(0);
   const [score, setScore] = useState(0);
-  const [selected, setSelected] = useState(null);
+  const [answers, setAnswers] = useState({});
   const [showResult, setShowResult] = useState(false);
 
   useEffect(() => {
@@ -43,10 +43,7 @@ export default function AudioGuessGame({ route, navigation }) {
       const shuffled = shuffleArray(filtered).slice(0, 5);
       const questionData = shuffled.map(correct => {
         const wrongs = filtered.filter(i => i.label_tr !== correct.label_tr);
-        const options = shuffleArray([
-          correct,
-          ...shuffleArray(wrongs).slice(0, 3),
-        ]);
+        const options = shuffleArray([correct, ...shuffleArray(wrongs).slice(0, 3)]);
         return {
           label: correct.label_tr,
           correctUri: correct.photoUrl || correct.image_url,
@@ -60,33 +57,84 @@ export default function AudioGuessGame({ route, navigation }) {
     fetchData();
   }, [mode]);
 
-  const shuffleArray = (arr) => [...arr].sort(() => Math.random() - 0.5);
+  useEffect(() => {
+    if (showResult) {
+      saveResult();
+    }
+  }, [showResult, saveResult]);
 
-  const speak = (text) => {
+  const saveResult = useCallback(async () => {
+    const uid = auth().currentUser?.uid;
+    if (!uid) return;
+
+    try {
+      await firestore()
+        .collection('users')
+        .doc(uid)
+        .collection('game_results')
+        .add({
+          type: 'Sesli Tahmin Oyunu',
+          mode: mode,
+          score: score,
+          total: questions.length * 10,
+          feedback: getFeedback(score),
+          date: firestore.FieldValue.serverTimestamp(),
+        });
+
+      console.log('✅ Sesli Tahmin sonucu kaydedildi.');
+    } catch (err) {
+      console.error('❌ Firestore kayıt hatası:', err);
+    }
+  }, [mode, score, questions.length]);
+
+
+
+  const shuffleArray = arr => [...arr].sort(() => Math.random() - 0.5);
+
+  const speak = text => {
     Tts.stop();
     Tts.speak(text, { language: 'tr-TR' });
   };
 
   const handleSelect = (uri) => {
     const currentQ = questions[current];
-    setSelected(uri);
-    if (uri === currentQ.correctUri) setScore(prev => prev + 10);
+    if (answers[current]) return; // zaten cevaplandıysa izin verme
+
+    const isCorrect = uri === currentQ.correctUri;
+
+    setAnswers(prev => ({
+      ...prev,
+      [current]: { selected: uri, correct: isCorrect },
+    }));
+
+    if (isCorrect) {
+      setScore(prev => prev + 10);
+    }
   };
 
   const goNext = () => {
     if (current + 1 >= questions.length) setShowResult(true);
-    else {
-      setCurrent(prev => prev + 1);
-      setSelected(null);
-    }
+    else setCurrent(prev => prev + 1);
+  };
+
+  const goBack = () => {
+    if (current > 0) setCurrent(prev => prev - 1);
   };
 
   if (questions.length === 0) {
     return <View style={styles.center}><Text>Yükleniyor...</Text></View>;
   }
 
+  const getFeedback = (puan) => {
+    if (puan >= 40) return '🎯 Mükemmel iş!';
+    if (puan >= 25) return '👍 Gayet iyi!';
+    return '🧠 Daha fazla pratik yapmalısın.';
+  };
+
+
+
   if (showResult) {
-    let yorum = '';
+    let yorum = getFeedback(score);
     if (score >= 40) yorum = '🎯 Mükemmel iş!';
     else if (score >= 25) yorum = '👍 Gayet iyi!';
     else yorum = '🧠 Daha fazla pratik yapmalısın.';
@@ -98,8 +146,8 @@ export default function AudioGuessGame({ route, navigation }) {
         <Text style={styles.feedback}>{yorum}</Text>
 
         <View style={styles.resultButtons}>
-          <TouchableOpacity style={[styles.resultButton, { backgroundColor: '#00cec9' }]} onPress={() => navigation.goBack()}>
-            <Text style={styles.resultButtonText}>Ana Sayfaya Dön</Text>
+          <TouchableOpacity style={[styles.resultButton, { backgroundColor: '#00cec9' }]} onPress={() => navigation.navigate('Games')}>
+            <Text style={styles.resultButtonText}>Oyunlar Sayfasına Dön</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -108,15 +156,17 @@ export default function AudioGuessGame({ route, navigation }) {
 
   const currentQ = questions[current];
   const correct = currentQ.correctUri;
+  const selected = answers[current]?.selected;
 
   return (
     <ScrollView style={styles.container}>
       <Text style={styles.title}>Soru {current + 1} / {questions.length}</Text>
-
+      <Text style={styles.scoreText}>Puan: {score} / {questions.length * 10}</Text>
+      <Text style={styles.info}>Dinlemek İçin Butona Tıklayınız</Text>
       <View style={styles.labelRow}>
-        <Text style={styles.labelText}>{currentQ.label}</Text>
+        {/* <Text style={styles.labelText}>{currentQ.label}</Text> */}
         <TouchableOpacity onPress={() => speak(currentQ.label)}>
-          <Icon name="volume-high" size={24} color="#0984e3" />
+          <Icon name="volume-high" size={40} color="#0984e3" />
         </TouchableOpacity>
       </View>
 
@@ -125,9 +175,10 @@ export default function AudioGuessGame({ route, navigation }) {
           const uri = opt.photoUrl || opt.image_url;
           const isSelected = selected === uri;
           const isCorrect = uri === correct;
+          const answered = selected !== undefined;
 
           let borderColor = '#ccc';
-          if (selected !== null) {
+          if (answered) {
             if (isSelected && isCorrect) borderColor = '#00b894';
             else if (isSelected && !isCorrect) borderColor = '#d63031';
             else if (!isSelected && isCorrect) borderColor = '#00b894';
@@ -137,7 +188,7 @@ export default function AudioGuessGame({ route, navigation }) {
             <TouchableOpacity
               key={idx}
               onPress={() => handleSelect(uri)}
-              disabled={selected !== null}
+              disabled={answered}
               style={[styles.imageWrapper, { borderColor }]}
             >
               <Image source={{ uri }} style={styles.imageOption} />
@@ -147,11 +198,12 @@ export default function AudioGuessGame({ route, navigation }) {
       </View>
 
       <View style={styles.navContainer}>
-        <TouchableOpacity
-          onPress={goNext}
-          disabled={selected === null}
-        >
-          <Icon name="arrow-forward-circle" size={42} color={selected === null ? '#ccc' : '#0984e3'} />
+        <TouchableOpacity onPress={goBack} disabled={current === 0}>
+          <Icon name="arrow-back-circle" size={42} color={current === 0 ? '#ccc' : '#6c5ce7'} />
+        </TouchableOpacity>
+
+        <TouchableOpacity onPress={goNext} disabled={!answers[current]}>
+          <Icon name="arrow-forward-circle" size={42} color={!answers[current] ? '#ccc' : '#0984e3'} />
         </TouchableOpacity>
       </View>
     </ScrollView>
@@ -162,6 +214,7 @@ const styles = StyleSheet.create({
   container: { flex: 1, padding: 20, backgroundColor: '#f5f6fa' },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   title: { fontSize: 22, fontWeight: 'bold', marginBottom: 10, textAlign: 'center' },
+  info: { fontSize: 20, alignSelf: 'center', justifyContent: 'center', marginVertical: 15, },
   labelRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, marginBottom: 12 },
   labelText: { fontSize: 20, fontWeight: 'bold', color: '#2d3436' },
   imageOptionsContainer: {
@@ -184,8 +237,9 @@ const styles = StyleSheet.create({
   },
   navContainer: {
     flexDirection: 'row',
-    justifyContent: 'center',
+    justifyContent: 'space-between',
     marginTop: 30,
+    paddingHorizontal: 20,
   },
   resultText: { fontSize: 24, fontWeight: 'bold', color: '#2d3436' },
   scoreText: { fontSize: 20, marginTop: 10, color: '#0984e3' },

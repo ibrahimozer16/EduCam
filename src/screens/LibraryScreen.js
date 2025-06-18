@@ -14,8 +14,10 @@ import firestore from '@react-native-firebase/firestore';
 import auth from '@react-native-firebase/auth';
 import storage from '@react-native-firebase/storage';
 import { useFocusEffect } from '@react-navigation/native';
+import Icon from 'react-native-vector-icons/Ionicons';
+import Tts from 'react-native-tts';
 
-export default function LibraryScreen() {
+export default function LibraryScreen({navigation}) {
   const [items, setItems] = useState([]);
   const [filteredItems, setFilteredItems] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -51,6 +53,11 @@ export default function LibraryScreen() {
     }, [])
   );
 
+  const speak = text => {
+    Tts.stop();
+    Tts.speak(text, { language: 'tr-TR' });
+  };
+
   const handleSearchAndSort = useCallback(() => {
     let updatedItems = [...items];
 
@@ -82,8 +89,13 @@ export default function LibraryScreen() {
           resizeMode="cover"
         />
       )}
-      <Text style={styles.label}>{item.label_tr || item.label_en}</Text>
-      <Text style={styles.confidence}>Doğruluk: {(item.confidence * 100).toFixed(2)}%</Text>
+      <View style={styles.labelRow}>
+        <Text style={styles.label}>{item.label_tr || item.label_en}</Text>
+        <TouchableOpacity onPress={() => speak(item.label_tr || item.label_en)}>
+          <Icon name="volume-high" size={22} color="#0984e3" />
+        </TouchableOpacity>
+      </View>
+      {/* <Text style={styles.confidence}>Doğruluk: {(item.confidence * 100).toFixed(2)}%</Text> */}
     </View>
   );
 
@@ -93,6 +105,7 @@ export default function LibraryScreen() {
         <ActivityIndicator size="large" color="#1e3a8a" style={{ marginTop: 30 }} />
       ) : (
         <>
+          <Text style={styles.headText}>Kütüphanem</Text>
           <TextInput
             style={styles.searchInput}
             placeholder="Ara..."
@@ -122,6 +135,10 @@ export default function LibraryScreen() {
             renderItem={renderItem}
             contentContainerStyle={{ paddingBottom: 30 }}
           />
+          <TouchableOpacity style={styles.button} onPress={() => navigation.navigate('Main')}>
+            <Icon name="arrow-back-circle-outline" size={24} color={'#2d3436'} />
+            <Text style={styles.buttonText}>Anasayfaya Dön</Text>
+          </TouchableOpacity>
         </>
       )}
     </View>
@@ -170,5 +187,32 @@ const styles = StyleSheet.create({
     shadowRadius: 3.84,
   },
   label: { fontSize: 18, color: '#2d3436', fontWeight: 'bold', marginBottom: 5 },
+  labelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 5,
+  },
   confidence: { fontSize: 14, color: '#636e72' },
+  button: {
+    backgroundColor: '#dfe6e9',
+    padding: 16,
+    borderRadius: 12,
+    marginVertical: 5,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    justifyContent: 'center',
+  },
+  buttonText: {
+     fontSize: 18, 
+     color: '#2d3436',
+  },
+  headText: {
+    fontSize: 30, 
+    color: '#2d3436',
+    alignSelf: 'center',
+    justifyContent: 'center',
+    marginBottom: 15,
+  }
 });

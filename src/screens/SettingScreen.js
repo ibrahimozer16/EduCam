@@ -1,8 +1,29 @@
-import React, { useContext } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native';
+import React, { useContext, useEffect, useCallback } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, Alert, BackHandler } from 'react-native';
 import { AuthContext } from '../firebase/AuthProvider';
+import { useFocusEffect } from '@react-navigation/native';
 
 export default function SettingScreen() {
+
+  useFocusEffect(
+    useCallback(() => {
+      const onBackPress = () => {
+        Alert.alert('Çıkış', 'Uygulamadan çıkmak istiyor musunuz?', [
+          { text: 'İptal', style: 'cancel' },
+          { text: 'Evet', onPress: () => BackHandler.exitApp() },
+        ]);
+        return true; // Geri tuşu davranışını durdur
+      };
+
+      const subscription = BackHandler.addEventListener(
+        'hardwareBackPress',
+        onBackPress
+      );
+
+      return () => subscription.remove(); // ❗️ removeEventListener yerine .remove()
+    }, [])
+  );
+
   const { logout } = useContext(AuthContext);
 
   const handleLogout = () => {

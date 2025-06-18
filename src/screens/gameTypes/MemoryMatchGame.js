@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { View, Text, Image, StyleSheet, TouchableOpacity, Alert, FlatList } from 'react-native';
 import firestore from '@react-native-firebase/firestore';
 import auth from '@react-native-firebase/auth';
@@ -48,12 +48,13 @@ export default function MemoryMatchGame({ route, navigation }) {
         else if (moves <= 12) message = '👍 İyi iş çıkardın!';
         else message = '🧠 Hafızanı geliştirmen gerek.';
 
+        saveResult();
         Alert.alert('🎉 Tebrikler!', `${message}\nToplam hamle: ${moves}`, [
-          { text: 'Ana Sayfa', onPress: () => navigation.goBack() },
+          { text: 'Ana Sayfa', onPress: () => navigation.navigate('Games')},
         ]);
       }, 600);
     }
-  }, [matchedIds, cards.length, moves, navigation]);
+  }, [matchedIds, cards.length, moves, navigation, saveResult]);
 
   const handleFlip = (card) => {
     if (flippedIds.length === 2 || flippedIds.includes(card.id) || matchedIds.includes(card.id)) return;
@@ -69,6 +70,31 @@ export default function MemoryMatchGame({ route, navigation }) {
       setTimeout(() => setFlippedIds([]), 800);
     }
   };
+
+  const saveResult = useCallback(async () => {
+    const uid = auth().currentUser?.uid;
+    if (!uid) return;
+
+    try {
+      await firestore()
+        .collection('users')
+        .doc(uid)
+        .collection('game_results')
+        .add({
+          type: 'Hafıza Oyunu',
+          mode: mode,
+          score: moves,
+          total: cards.length / 2,
+          date: firestore.FieldValue.serverTimestamp(),
+        });
+
+      console.log('✅ Hafıza oyunu sonucu kaydedildi.');
+    } catch (err) {
+      console.error('❌ Firestore kayıt hatası:', err);
+    }
+  }, [mode, moves, cards.length]);
+
+
 
   const renderItem = ({ item }) => {
     const isFlipped = flippedIds.includes(item.id) || matchedIds.includes(item.id);

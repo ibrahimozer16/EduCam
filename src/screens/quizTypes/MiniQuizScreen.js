@@ -1,4 +1,3 @@
-// Mini Quiz Screen (label gösterimli, 5 soruluk, tekrar eden label filtreli, değerlendirme mesajlı, TTS destekli)
 import React, { useState, useEffect } from 'react';
 import {
   View,
@@ -61,6 +60,44 @@ export default function MiniQuizScreen({ navigation }) {
 
     fetchQuestions();
   }, [userId]);
+
+  useEffect(() => {
+    if (showResult) {
+      const saveResult = async () => {
+        const uid = auth().currentUser?.uid;
+        if (!uid) return;
+
+        const max = questions.length * 10;
+        const percentage = (score / max) * 100;
+        let feedback = '';
+        if (percentage >= 80) feedback = 'Mükemmel bir performans!';
+        else if (percentage >= 60) feedback = 'Gayet iyi!';
+        else if (percentage >= 30) feedback = 'Geliştirmen gerek!';
+        else feedback = 'Daha çok çalışmalısın!';
+
+        try {
+          await firestore()
+            .collection('users')
+            .doc(uid)
+            .collection('exam_results') // Sınavlar için
+            .add({
+              type: 'Mini Sınav',
+              mode: 'library',
+              score: score,
+              total: max,
+              feedback: feedback,
+              date: firestore.FieldValue.serverTimestamp(),
+            });
+
+          console.log('✅ Mini quiz sonucu kaydedildi.');
+        } catch (err) {
+          console.error('❌ Firestore kayıt hatası:', err);
+        }
+      };
+
+      saveResult();
+    }
+  }, [showResult, score, questions.length]);
 
   const shuffleArray = (array) => [...array].sort(() => Math.random() - 0.5);
 

@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   FlatList
 } from 'react-native';
+import Icon from 'react-native-vector-icons/Ionicons';
 
 const quizTypes = [
   { id: '1', title: '🧩 Genel Sınav', screen: 'GeneralQuiz' },
@@ -32,6 +33,10 @@ export default function ExamsScreen({ navigation }) {
         keyExtractor={item => item.id}
         contentContainerStyle={styles.list}
       />
+      <TouchableOpacity style={styles.button} onPress={() => navigation.navigate('Main')}>
+        <Icon name="arrow-back-circle-outline" size={30} color={'white'} />
+        <Text style={styles.buttonText}>Anasayfaya Dön</Text>
+      </TouchableOpacity>
     </View>
   );
 }
@@ -59,8 +64,23 @@ const styles = StyleSheet.create({
     elevation: 4
   },
   cardText: {
-    fontSize: 16,
+    fontSize: 18,
     color: 'white',
     textAlign: 'center'
-  }
+  },
+  button: {
+    backgroundColor: '#74b9ff',
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    justifyContent: 'center',
+    elevation: 4,
+  },
+  buttonText: {
+     fontSize: 18, 
+     color: 'white',
+  },
 });

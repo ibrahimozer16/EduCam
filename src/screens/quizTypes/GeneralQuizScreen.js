@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, Image, StyleSheet, ScrollView } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import firestore from '@react-native-firebase/firestore';
+import auth from '@react-native-firebase/auth';
 import Tts from 'react-native-tts';
 
 export default function GeneralQuizScreen({ navigation }) {
@@ -39,6 +40,38 @@ export default function GeneralQuizScreen({ navigation }) {
 
     fetchQuestions();
   }, []);
+
+  useEffect(() => {
+    if (showResult) {
+      const saveResult = async () => {
+        const uid = auth().currentUser?.uid;
+        if (!uid) return;
+
+        const feedback = getFeedback(score, questions.length * 10);
+
+        try {
+          await firestore()
+            .collection('users')
+            .doc(uid)
+            .collection('exam_results')
+            .add({
+              type: 'Genel Sınav',
+              score: score,
+              total: questions.length * 10,
+              feedback: feedback,
+              mode: 'general',
+              date: firestore.FieldValue.serverTimestamp(),
+            });
+
+          console.log('✅ Sınav sonucu ve yorum kaydedildi');
+        } catch (err) {
+          console.error('❌ Firestore kayıt hatası:', err);
+        }
+      };
+
+      saveResult();
+    }
+  }, [showResult, questions.length, score]);
 
   const shuffleArray = (array) => {
     return [...array].sort(() => Math.random() - 0.5);
@@ -91,6 +124,7 @@ export default function GeneralQuizScreen({ navigation }) {
       </View>
     );
   }
+
 
   if (showResult) {
     const feedback = getFeedback(score, questions.length * 10);
