@@ -1,9 +1,10 @@
-import React, { useContext } from 'react';
+import React, { useContext, useEffect } from 'react';
 import { View, Text } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { AuthProvider, AuthContext } from './src/firebase/AuthProvider';
+
 import HomeScreen from './src/screens/HomeScreen';
 import CameraScreen from './src/screens/CameraScreen';
 import SettingScreen from './src/screens/SettingScreen';
@@ -14,6 +15,7 @@ import GamesScreen from './src/screens/GamesScreen';
 import LoginScreen from './src/screens/LoginScreen';
 import RegisterScreen from './src/screens/RegisterScreen';
 import Icon from 'react-native-vector-icons/Ionicons';
+
 import GeneralQuizScreen from './src/screens/quizTypes/GeneralQuizScreen';
 import MiniQuizScreen from './src/screens/quizTypes/MiniQuizScreen';
 import PhotoWordGame from './src/screens/gameTypes/PhotoWordGame';
@@ -35,6 +37,11 @@ import PhotoSpeechGame from './src/screens/gameTypes/PhotoSpeechGame';
 import ChangePasswordScreen from './src/screens/ChangePasswordScreen';
 import ResultsScreen from './src/screens/ResultsScreen';
 
+import './src/i18n/i18n.js' // Çoklu dil desteği
+import { useTranslation } from 'react-i18next';
+import { getStoredLanguage } from './src/utils/langHelper';
+import AnalyticsScreen from './src/screens/AnalyticsScreen.js';
+
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
 
@@ -54,9 +61,9 @@ const MainTabNavigator = () => (
       tabBarStyle: { backgroundColor: '#fff', paddingBottom: 5 },
     })}
   >
-    <Tab.Screen name="Camera" component={CameraScreen} options={{headerShown: false}} />
-    <Tab.Screen name="Home" component={HomeScreen} options={{headerShown: false}} />
-    <Tab.Screen name="Settings" component={SettingScreen} options={{headerShown: false}} />
+    <Tab.Screen name="Camera" component={CameraScreen} options={{ headerShown: false }} />
+    <Tab.Screen name="Home" component={HomeScreen} options={{ headerShown: false }} />
+    <Tab.Screen name="Settings" component={SettingScreen} options={{ headerShown: false }} />
   </Tab.Navigator>
 );
 
@@ -69,13 +76,14 @@ const AuthStack = () => (
 
 const AppNavigator = () => {
   const { user, initializing } = useContext(AuthContext);
+  const { t } = useTranslation();
 
   if (initializing) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'white' }}>
-        <Text style={{ fontSize: 18 }}>Yükleniyor...</Text>
+        <Text style={{ fontSize: 18 }}>{t('loading')}</Text>
       </View>
-    )
+    );
   }
 
   return (
@@ -88,6 +96,7 @@ const AppNavigator = () => {
           <Stack.Screen name="Library" component={LibraryScreen} />
           <Stack.Screen name="Games" component={GamesScreen} />
           <Stack.Screen name="Results" component={ResultsScreen} />
+          <Stack.Screen name="Analytics" component={AnalyticsScreen} />
           <Stack.Screen name="ChangePassword" component={ChangePasswordScreen} />
           <Stack.Screen name="GeneralQuiz" component={GeneralQuizScreen} />
           <Stack.Screen name="MiniQuiz" component={MiniQuizScreen} />
@@ -106,8 +115,7 @@ const AppNavigator = () => {
           <Stack.Screen name="MatchTruthMode" component={MatchTruthModeScreen} />
           <Stack.Screen name="MatchTruth" component={MatchTruthGame} />
           <Stack.Screen name="PhotoSpeechMode" component={PhotoSpeechModeScreen} />
-          <Stack.Screen name="PhotoSpeech" component={PhotoSpeechGame} />  
-
+          <Stack.Screen name="PhotoSpeech" component={PhotoSpeechGame} />
         </>
       ) : (
         <Stack.Screen name="Auth" component={AuthStack} />
@@ -117,6 +125,10 @@ const AppNavigator = () => {
 };
 
 export default function App() {
+  useEffect(() => {
+    getStoredLanguage(); // AsyncStorage’dan daha önceki dili yükle
+  }, []);
+
   return (
     <AuthProvider>
       <NavigationContainer>

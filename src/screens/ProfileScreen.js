@@ -14,8 +14,10 @@ import auth from '@react-native-firebase/auth';
 import storage from '@react-native-firebase/storage';
 import { launchImageLibrary } from 'react-native-image-picker';
 import Icon from 'react-native-vector-icons/Ionicons';
+import { useTranslation } from 'react-i18next';
 
 export default function ProfileScreen({ navigation }) {
+  const { t } = useTranslation();
   const [user, setUser] = useState(null);
   const [profileData, setProfileData] = useState(null);
   const [uploading, setUploading] = useState(false);
@@ -23,14 +25,11 @@ export default function ProfileScreen({ navigation }) {
   useEffect(() => {
     const fetchUserData = async () => {
       const currentUser = auth().currentUser;
-
       if (!currentUser) {
-        Alert.alert('Kullanıcı oturumu bulunamadı');
+        Alert.alert(t('userLoading'));
         return;
       }
-
       setUser(currentUser);
-
       try {
         const docSnap = await firestore().collection('users').doc(currentUser.uid).get();
         if (docSnap.exists) {
@@ -42,7 +41,7 @@ export default function ProfileScreen({ navigation }) {
     };
 
     fetchUserData();
-  }, []);
+  }, [t]);
 
   const pickImageAndUpload = async () => {
     launchImageLibrary({ mediaType: 'photo' }, async (response) => {
@@ -59,9 +58,9 @@ export default function ProfileScreen({ navigation }) {
         const downloadURL = await ref.getDownloadURL();
         await auth().currentUser.updateProfile({ photoURL: downloadURL });
         setUser((prev) => ({ ...prev, photoURL: downloadURL }));
-        Alert.alert('Profil fotoğrafı güncellendi!');
+        Alert.alert(t('uploadSuccess'));
       } catch (error) {
-        Alert.alert('Fotoğraf yüklenemedi.');
+        Alert.alert(t('uploadFailed'));
       } finally {
         setUploading(false);
       }
@@ -72,10 +71,16 @@ export default function ProfileScreen({ navigation }) {
     return (
       <View style={styles.centered}>
         <ActivityIndicator size="large" color="#1e3a8a" />
-        <Text style={{ color: 'white', marginTop: 10 }}>Kullanıcı yükleniyor...</Text>
+        <Text style={{ color: 'white', marginTop: 10 }}>{t('userLoading')}</Text>
       </View>
     );
   }
+
+  const genderKey = profileData.gender?.toLowerCase() === 'erkek'
+    ? 'gender_male'
+    : profileData.gender?.toLowerCase() === 'kadın'
+    ? 'gender_female'
+    : profileData.gender;
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
@@ -86,21 +91,23 @@ export default function ProfileScreen({ navigation }) {
         </View>
 
         <Text style={styles.name}>{profileData.fullName || 'Ad Soyad'}</Text>
-        <Text style={styles.info}><Text style={styles.label}>📧</Text> {user.email}</Text>
-        <Text style={styles.info}><Text style={styles.label}>🎂</Text> {profileData.birthDate}</Text>
-        <Text style={styles.info}><Text style={styles.label}>🚻</Text> {profileData.gender}</Text>
+        <Text style={styles.info}>📧 {user.email}</Text>
+        <Text style={styles.info}>🎂 {profileData.birthDate}</Text>
+        <Text style={styles.info}>🚻 {t(genderKey)}</Text>
 
         <TouchableOpacity style={styles.uploadBtn} onPress={pickImageAndUpload}>
-          <Text style={styles.uploadText}>{uploading ? '⏳ Yükleniyor...' : '📸 Profil Fotoğrafı Yükle'}</Text>
+          <Text style={styles.uploadText}>
+            {uploading ? t('profileUploading') : t('uploadProfilePhoto')}
+          </Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.passwordBtn} onPress={() => {navigation.navigate('ChangePassword')}}>
-          <Text style={styles.passwordText}>🔑 Şifre Değiştir</Text>
+        <TouchableOpacity style={styles.passwordBtn} onPress={() => navigation.navigate('ChangePassword')}>
+          <Text style={styles.passwordText}>{t('changePasswordAction')}</Text>
         </TouchableOpacity>
 
         <TouchableOpacity style={styles.button} onPress={() => navigation.navigate('Main')}>
           <Icon name="arrow-back-circle-outline" size={26} color={'white'} />
-          <Text style={styles.buttonText}>Anasayfaya Dön</Text>
+          <Text style={styles.buttonText}>{t('backToHome')}</Text>
         </TouchableOpacity>
       </View>
     </ScrollView>
@@ -162,10 +169,6 @@ const styles = StyleSheet.create({
     fontSize: 20,
     color: '#636e72',
     marginVertical: 2,
-  },
-  label: {
-    fontWeight: 'bold',
-    color: '#2d3436',
   },
   uploadBtn: {
     backgroundColor: '#00cec9',

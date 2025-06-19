@@ -1,54 +1,55 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, FlatList } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
+import { useTranslation } from 'react-i18next';
 
-const games = [
-  {
-    id: '1',
-    title: 'Fotoğraftan Kelime Tahmini',
-    icon: 'image-outline',
-    screen: 'PhotoWordMode',
-  },
-  {
-    id: '2',
-    title: 'Kart Eşleştirme',
-    icon: 'grid-outline',
-    screen: 'MemoryGameMode',
-  },
-  {
-    id: '3',
-    title: 'Ses Tahmini Oyunu',
-    icon: 'volume-high-outline',
-    screen: 'AudioGuessGameMode',
-  },
-  {
-    id: '4',
-    title: 'Doğru Yanlış Oyunu',
-    icon: 'help-circle-outline',
-    screen: 'MatchTruthMode',
-  },
-  {
-    id: '5',
-    title: 'Sesli Tahmin Oyunu',
-    icon: 'mic-outline',
-    screen: 'PhotoSpeechMode',
-  },
-  {
-    id: '6',
-    title: 'Görsel-Kelime Eşleştirme(Demo)',
-    icon: 'swap-horizontal-outline',
-    screen: 'ImageWordMode',
-  },
-  {
-    id: '7',
-    title: 'Ok İle Görsel-Kelime Eşleştirme(Demo)',
-    icon: 'arrow-forward-outline',
-    screen: 'ArrowGameMode',
-  },
-  // ileri oyunlar eklenebilir
-];
+export default function GamesScreen({ navigation }) {
+  const { t } = useTranslation();
 
-export default function GamesScreen({navigation}) {
+  const games = [
+    {
+      id: '1',
+      title: t('photoWordGame'),
+      icon: 'image-outline',
+      screen: 'PhotoWordMode',
+    },
+    {
+      id: '2',
+      title: t('memoryGame'),
+      icon: 'grid-outline',
+      screen: 'MemoryGameMode',
+    },
+    {
+      id: '3',
+      title: t('audioGuessGame'),
+      icon: 'volume-high-outline',
+      screen: 'AudioGuessGameMode',
+    },
+    {
+      id: '4',
+      title: t('matchTruthGame'),
+      icon: 'help-circle-outline',
+      screen: 'MatchTruthMode',
+    },
+    {
+      id: '5',
+      title: t('photoSpeechGame'),
+      icon: 'mic-outline',
+      screen: 'PhotoSpeechMode',
+    },
+    {
+      id: '6',
+      title: t('imageWordMatchDemo'),
+      icon: 'swap-horizontal-outline',
+      screen: 'ImageWordMode',
+    },
+    {
+      id: '7',
+      title: t('arrowMatchGameDemo'),
+      icon: 'arrow-forward-outline',
+      screen: 'ArrowGameMode',
+    },
+  ];
 
   const renderItem = ({ item }) => (
     <TouchableOpacity
@@ -62,7 +63,7 @@ export default function GamesScreen({navigation}) {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.header}>🕹️ Oyunlar</Text>
+      <Text style={styles.header}>{t('gamesTitle')}</Text>
       <FlatList
         data={games}
         keyExtractor={item => item.id}
@@ -71,7 +72,7 @@ export default function GamesScreen({navigation}) {
       />
       <TouchableOpacity style={styles.button} onPress={() => navigation.navigate('Main')}>
         <Icon name="arrow-back-circle-outline" size={30} color={'#6c5ce7'} />
-        <Text style={styles.buttonText}>Anasayfaya Dön</Text>
+        <Text style={styles.buttonText}>{t('backToHome')}</Text>
       </TouchableOpacity>
     </View>
   );
@@ -79,7 +80,13 @@ export default function GamesScreen({navigation}) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f5f6fa', padding: 20 },
-  header: { fontSize: 24, fontWeight: 'bold', marginBottom: 20, color: '#2d3436', alignSelf: 'center' },
+  header: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    marginBottom: 20,
+    color: '#2d3436',
+    alignSelf: 'center'
+  },
   list: { paddingBottom: 20 },
   card: {
     backgroundColor: '#dfe6e9',
@@ -102,7 +109,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center'
   },
   buttonText: {
-     fontSize: 18, 
-     color: '#2d3436',
+    fontSize: 18,
+    color: '#2d3436',
   },
 });

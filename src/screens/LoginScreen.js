@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -11,23 +11,43 @@ import {
   ScrollView,
 } from 'react-native';
 import auth from '@react-native-firebase/auth';
+import { useTranslation } from 'react-i18next';
+import i18n from '../i18n/i18n';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function LoginScreen({ navigation }) {
+  const { t } = useTranslation();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [selectedLang, setSelectedLang] = useState(i18n.language);
 
   const handleLogin = async () => {
     try {
       await auth().signInWithEmailAndPassword(email, password);
-      Alert.alert('✅ Başarılı', 'Giriş yapıldı!');
+      Alert.alert('✅', t('registrationSuccess'));
       navigation.reset({
         index: 0,
         routes: [{ name: 'Main' }],
       });
     } catch (error) {
-      Alert.alert('❌ Hata', error.message);
+      Alert.alert('❌', error.message);
     }
   };
+
+  const changeLanguage = async (lang) => {
+    await i18n.changeLanguage(lang);
+    await AsyncStorage.setItem('userLang', lang);
+    setSelectedLang(lang);
+  };
+
+  useEffect(() => {
+    AsyncStorage.getItem('userLang').then(storedLang => {
+      if (storedLang && storedLang !== i18n.language) {
+        i18n.changeLanguage(storedLang);
+        setSelectedLang(storedLang);
+      }
+    });
+  }, []);
 
   return (
     <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
@@ -36,11 +56,38 @@ export default function LoginScreen({ navigation }) {
         keyboardShouldPersistTaps="handled"
       >
         <View style={styles.inner}>
-          <Text style={styles.title}>EduCam Giriş</Text>
+          <Text style={styles.title}>{t('loginTitle')}</Text>
+
+          <View style={styles.langRow}>
+            <TouchableOpacity
+              style={[styles.langButton, selectedLang === 'tr' && styles.langSelected]}
+              onPress={() => changeLanguage('tr')}
+            >
+              <Text style={styles.langText}>🇹🇷 Türkçe</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.langButton, selectedLang === 'en' && styles.langSelected]}
+              onPress={() => changeLanguage('en')}
+            >
+              <Text style={styles.langText}>🇺🇸 English</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.langButton, selectedLang === 'es' && styles.langSelected]}
+              onPress={() => changeLanguage('es')}
+            >
+              <Text style={styles.langText}>🇪🇸 Español</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.langButton, selectedLang === 'zh' && styles.langSelected]}
+              onPress={() => changeLanguage('zh')}
+            >
+              <Text style={styles.langText}>🇨🇳 中文</Text>
+            </TouchableOpacity>
+          </View>
 
           <TextInput
             style={styles.input}
-            placeholder="Email"
+            placeholder={t('email')}
             placeholderTextColor="#aaa"
             keyboardType="email-address"
             autoCapitalize="none"
@@ -49,7 +96,7 @@ export default function LoginScreen({ navigation }) {
           />
           <TextInput
             style={styles.input}
-            placeholder="Şifre"
+            placeholder={t('password')}
             placeholderTextColor="#aaa"
             secureTextEntry
             onChangeText={setPassword}
@@ -58,11 +105,11 @@ export default function LoginScreen({ navigation }) {
           />
 
           <TouchableOpacity style={styles.loginButton} onPress={handleLogin}>
-            <Text style={styles.buttonText}>Giriş Yap</Text>
+            <Text style={styles.buttonText}>{t('loginButton')}</Text>
           </TouchableOpacity>
 
           <TouchableOpacity onPress={() => navigation.navigate('Register')}>
-            <Text style={styles.registerText}>Hesabın yok mu? Kayıt Ol</Text>
+            <Text style={styles.registerText}>{t('registerPrompt')}</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
@@ -112,5 +159,26 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 16,
     textAlign: 'center',
+  },
+  langRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    flexWrap: 'wrap',
+    gap: 10,
+    marginBottom: 20,
+  },
+  langButton: {
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    backgroundColor: '#ccc',
+    marginHorizontal: 4,
+  },
+  langSelected: {
+    backgroundColor: '#0abde3',
+  },
+  langText: {
+    color: 'white',
+    fontWeight: 'bold',
   },
 });

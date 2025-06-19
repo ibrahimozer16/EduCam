@@ -6,8 +6,6 @@ import {
   TouchableOpacity,
   Alert,
   StyleSheet,
-  KeyboardAvoidingView,
-  Platform,
   TouchableWithoutFeedback,
   Keyboard,
   ScrollView,
@@ -15,8 +13,10 @@ import {
 import auth from '@react-native-firebase/auth';
 import firestore from '@react-native-firebase/firestore';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import { useTranslation } from 'react-i18next';
 
 export default function RegisterScreen({ navigation }) {
+  const { t } = useTranslation();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
@@ -26,7 +26,7 @@ export default function RegisterScreen({ navigation }) {
 
   const handleRegister = async () => {
     if (password.length !== 6 || !/^[0-9]+$/.test(password)) {
-      Alert.alert('❗ Hata', 'Şifre 6 basamaklı ve sadece rakamlardan oluşmalıdır.');
+      Alert.alert('❗ ' + t('error'), t('passwordRule'));
       return;
     }
 
@@ -41,10 +41,10 @@ export default function RegisterScreen({ navigation }) {
         email,
       });
 
-      Alert.alert('✅ Başarılı', 'Kayıt tamamlandı!');
+      Alert.alert('✅ ' + t('success'), t('registrationSuccess'));
       navigation.navigate('Login');
     } catch (error) {
-      Alert.alert('❌ Hata', error.message);
+      Alert.alert('❌ ' + t('error'), error.message);
     }
   };
 
@@ -55,24 +55,14 @@ export default function RegisterScreen({ navigation }) {
   };
 
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      style={styles.container}
-    >
-      <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-        <ScrollView contentContainerStyle={styles.inner}>
-          <Text style={styles.title}>EduCam Kayıt</Text>
+    <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+      <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
+        <View style={styles.inner}>
+          <Text style={styles.title}>{t('registerTitle')}</Text>
 
           <TextInput
             style={styles.input}
-            placeholder="Ad Soyad"
-            placeholderTextColor="#aaa"
-            onChangeText={setFullName}
-            value={fullName}
-          />
-          <TextInput
-            style={styles.input}
-            placeholder="Email"
+            placeholder={t('email')}
             placeholderTextColor="#aaa"
             keyboardType="email-address"
             autoCapitalize="none"
@@ -81,26 +71,33 @@ export default function RegisterScreen({ navigation }) {
           />
           <TextInput
             style={styles.input}
-            placeholder="6 Haneli Şifre (Sadece Rakam)"
+            placeholder={t('password')}
             placeholderTextColor="#aaa"
             secureTextEntry
-            keyboardType="numeric"
-            maxLength={6}
             onChangeText={setPassword}
             value={password}
+            keyboardType="numeric"
           />
           <TextInput
             style={styles.input}
-            placeholder="Cinsiyet (Erkek/Kadın)"
+            placeholder={t('name')}
+            placeholderTextColor="#aaa"
+            onChangeText={setFullName}
+            value={fullName}
+          />
+          <TextInput
+            style={styles.input}
+            placeholder={t('gender')}
             placeholderTextColor="#aaa"
             onChangeText={setGender}
             value={gender}
           />
 
-          <TouchableOpacity onPress={() => setShowDatePicker(true)} style={styles.dateButton}>
-            <Text style={styles.buttonText}>
-              Doğum Tarihi: {birthDate.toLocaleDateString('tr-TR')}
-            </Text>
+          <TouchableOpacity
+            onPress={() => setShowDatePicker(true)}
+            style={[styles.input, { justifyContent: 'center' }]}
+          >
+            <Text style={{ color: '#1e3a8a' }}>{t('birthDate')}: {birthDate.toISOString().split('T')[0]}</Text>
           </TouchableOpacity>
 
           {showDatePicker && (
@@ -109,27 +106,40 @@ export default function RegisterScreen({ navigation }) {
               mode="date"
               display="default"
               onChange={onDateChange}
-              maximumDate={new Date()}
             />
           )}
 
-          <TouchableOpacity style={styles.registerButton} onPress={handleRegister}>
-            <Text style={styles.buttonText}>Kayıt Ol</Text>
+          <TouchableOpacity style={styles.loginButton} onPress={handleRegister}>
+            <Text style={styles.buttonText}>{t('registerButton')}</Text>
           </TouchableOpacity>
 
           <TouchableOpacity onPress={() => navigation.navigate('Login')}>
-            <Text style={styles.loginText}>Hesabın var mı? Giriş Yap</Text>
+            <Text style={styles.registerText}>{t('loginPrompt')}</Text>
           </TouchableOpacity>
-        </ScrollView>
-      </TouchableWithoutFeedback>
-    </KeyboardAvoidingView>
+        </View>
+      </ScrollView>
+    </TouchableWithoutFeedback>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#1e3a8a' },
-  inner: { paddingHorizontal: 30, justifyContent: 'center', flexGrow: 1 },
-  title: { fontSize: 28, fontWeight: 'bold', color: 'white', textAlign: 'center', marginBottom: 30 },
+  container: {
+    flexGrow: 1,
+    backgroundColor: '#1e3a8a',
+    justifyContent: 'center',
+    paddingHorizontal: 30,
+  },
+  inner: {
+    flex: 1,
+    justifyContent: 'center',
+  },
+  title: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: 'white',
+    textAlign: 'center',
+    marginBottom: 30,
+  },
   input: {
     height: 50,
     backgroundColor: 'white',
@@ -139,18 +149,20 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#1e3a8a',
   },
-  dateButton: {
-    backgroundColor: '#0984e3',
-    paddingVertical: 15,
-    borderRadius: 8,
-    marginBottom: 20,
-  },
-  registerButton: {
+  loginButton: {
     backgroundColor: '#0abde3',
     paddingVertical: 15,
     borderRadius: 8,
     marginBottom: 15,
   },
-  buttonText: { color: 'white', fontSize: 18, textAlign: 'center' },
-  loginText: { color: 'white', fontSize: 16, textAlign: 'center' },
+  buttonText: {
+    color: 'white',
+    fontSize: 18,
+    textAlign: 'center',
+  },
+  registerText: {
+    color: 'white',
+    fontSize: 16,
+    textAlign: 'center',
+  },
 });

@@ -1,18 +1,21 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
+import { useTranslation } from 'react-i18next';
 
 export default function AudioGuessModeScreen({ navigation }) {
+  const { t } = useTranslation();
+
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>🎧 Sesli Tahmin Modu</Text>
+      <Text style={styles.title}>{t('audioGuessModeTitle')}</Text>
 
       <TouchableOpacity
         style={[styles.button, { backgroundColor: '#6c5ce7' }]}
         onPress={() => navigation.navigate('AudioGuessGame', { mode: 'library' })}
       >
         <Icon name="folder-open-outline" size={24} color="#fff" />
-        <Text style={styles.buttonText}>📁 Kütüphane Modu</Text>
+        <Text style={styles.buttonText}>{t('libraryMode')}</Text>
       </TouchableOpacity>
 
       <TouchableOpacity
@@ -20,7 +23,7 @@ export default function AudioGuessModeScreen({ navigation }) {
         onPress={() => navigation.navigate('AudioGuessGame', { mode: 'general' })}
       >
         <Icon name="earth-outline" size={24} color="#fff" />
-        <Text style={styles.buttonText}>🌍 Genel Mod</Text>
+        <Text style={styles.buttonText}>{t('generalMode')}</Text>
       </TouchableOpacity>
     </View>
   );

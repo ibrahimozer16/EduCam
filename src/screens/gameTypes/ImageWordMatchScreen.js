@@ -1,18 +1,21 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
+import { useTranslation } from 'react-i18next';
 
 export default function ImageWordMatchScreen({ navigation }) {
+  const { t } = useTranslation();
+
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Eşleştirme Modunu Seç</Text>
+      <Text style={styles.title}>{t('matchingModeSelect')}</Text>
 
       <TouchableOpacity
         style={[styles.button, { backgroundColor: '#6c5ce7' }]}
         onPress={() => navigation.navigate('ImageWord', { mode: 'library' })}
       >
         <Icon name="images-outline" size={24} color="#fff" />
-        <Text style={styles.buttonText}>📁 Kütüphaneme Göre</Text>
+        <Text style={styles.buttonText}>{t('libraryMode')}</Text>
       </TouchableOpacity>
 
       <TouchableOpacity
@@ -20,7 +23,7 @@ export default function ImageWordMatchScreen({ navigation }) {
         onPress={() => navigation.navigate('ImageWord', { mode: 'general' })}
       >
         <Icon name="globe-outline" size={24} color="#fff" />
-        <Text style={styles.buttonText}>🌍 Genel Oyun</Text>
+        <Text style={styles.buttonText}>{t('generalMode')}</Text>
       </TouchableOpacity>
     </View>
   );
@@ -39,7 +42,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#2d3436',
     marginBottom: 40,
-    textAlign: 'center'
+    textAlign: 'center',
   },
   button: {
     flexDirection: 'row',

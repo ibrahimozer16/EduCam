@@ -11,8 +11,11 @@ import {
   ScrollView,
 } from 'react-native';
 import auth from '@react-native-firebase/auth';
+import { useTranslation } from 'react-i18next';
 
 export default function ChangePasswordScreen({ navigation }) {
+  const { t } = useTranslation();
+
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -26,12 +29,12 @@ export default function ChangePasswordScreen({ navigation }) {
 
   const handleChangePassword = async () => {
     if (!currentPassword || !newPassword || !confirmPassword) {
-      Alert.alert('Uyarı', 'Tüm alanlar doldurulmalıdır.');
+      Alert.alert(t('alertPasswordError'), t('alertMissingFields'));
       return;
     }
 
     if (newPassword !== confirmPassword) {
-      Alert.alert('Hata', 'Yeni şifreler uyuşmuyor.');
+      Alert.alert(t('alertPasswordError'), t('alertPasswordMismatch'));
       return;
     }
 
@@ -39,11 +42,11 @@ export default function ChangePasswordScreen({ navigation }) {
       setLoading(true);
       await reauthenticate(currentPassword);
       await auth().currentUser.updatePassword(newPassword);
-      Alert.alert('Başarılı', 'Şifre güncellendi.');
+      Alert.alert(t('alertPasswordSuccess'), t('alertPasswordSuccess'));
       await auth().signOut();
     } catch (error) {
       console.error(error);
-      Alert.alert('Hata', 'Güncelleme başarısız. Şifre veya bağlantı hatası olabilir.');
+      Alert.alert(t('alertPasswordError'), t('alertPasswordError'));
     } finally {
       setLoading(false);
     }
@@ -57,11 +60,11 @@ export default function ChangePasswordScreen({ navigation }) {
       <ScrollView contentContainerStyle={styles.container}>
         <View style={styles.header} />
         <View style={styles.card}>
-          <Text style={styles.title}>🔒 Şifre Değiştir</Text>
+          <Text style={styles.title}>🔒 {t('changePassword')}</Text>
 
           <TextInput
             style={styles.input}
-            placeholder="Mevcut Şifre"
+            placeholder={t('currentPassword')}
             secureTextEntry
             value={currentPassword}
             onChangeText={setCurrentPassword}
@@ -69,7 +72,7 @@ export default function ChangePasswordScreen({ navigation }) {
           />
           <TextInput
             style={styles.input}
-            placeholder="Yeni Şifre"
+            placeholder={t('newPassword')}
             secureTextEntry
             value={newPassword}
             onChangeText={setNewPassword}
@@ -77,7 +80,7 @@ export default function ChangePasswordScreen({ navigation }) {
           />
           <TextInput
             style={styles.input}
-            placeholder="Yeni Şifre (tekrar)"
+            placeholder={t('confirmPassword')}
             secureTextEntry
             value={confirmPassword}
             onChangeText={setConfirmPassword}
@@ -90,11 +93,15 @@ export default function ChangePasswordScreen({ navigation }) {
             disabled={loading}
           >
             <Text style={styles.buttonText}>
-              {loading ? 'Güncelleniyor...' : 'Şifreyi Güncelle'}
+              {loading ? t('updatingPassword') : t('updatePassword')}
             </Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.button1} onPress={() => navigation.navigate('Profile')}>
-            <Text style={styles.buttonText}>Profile Geri Dön</Text>
+
+          <TouchableOpacity
+            style={styles.button1}
+            onPress={() => navigation.navigate('Profile')}
+          >
+            <Text style={styles.buttonText}>{t('backToProfile')}</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>

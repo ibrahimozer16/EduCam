@@ -1,18 +1,21 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
+import { useTranslation } from 'react-i18next';
 
 export default function PhotoWordGameModeScreen({ navigation }) {
+  const { t } = useTranslation();
+
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Oyun Modunu Seç</Text>
+      <Text style={styles.title}>{t('photo_word_game_mode')}</Text>
 
       <TouchableOpacity
         style={[styles.button, { backgroundColor: '#6c5ce7' }]}
         onPress={() => navigation.navigate('PhotoWordGame', { mode: 'library' })}
       >
         <Icon name="images-outline" size={24} color="#fff" />
-        <Text style={styles.buttonText}>📁 Kütüphaneme Göre</Text>
+        <Text style={styles.buttonText}>{t('libraryMode')}</Text>
       </TouchableOpacity>
 
       <TouchableOpacity
@@ -20,7 +23,7 @@ export default function PhotoWordGameModeScreen({ navigation }) {
         onPress={() => navigation.navigate('PhotoWordGame', { mode: 'general' })}
       >
         <Icon name="globe-outline" size={24} color="#fff" />
-        <Text style={styles.buttonText}>🌍 Genel Oyun</Text>
+        <Text style={styles.buttonText}>{t('generalMode')}</Text>
       </TouchableOpacity>
     </View>
   );

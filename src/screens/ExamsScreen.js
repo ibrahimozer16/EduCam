@@ -7,15 +7,18 @@ import {
   FlatList
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
-
-const quizTypes = [
-  { id: '1', title: '🧩 Genel Sınav', screen: 'GeneralQuiz' },
-  { id: '2', title: '🧩 Mini Sınav', screen: 'MiniQuiz' },
-  { id: '3', title: '🧩 Resimli Genel Sınav', screen: 'ImageGeneralQuiz' },
-  { id: '4', title: '🧩 Resimli Mini Sınav', screen: 'ImageMiniQuiz' },
-];
+import { useTranslation } from 'react-i18next';
 
 export default function ExamsScreen({ navigation }) {
+  const { t } = useTranslation();
+
+  const quizTypes = [
+    { id: '1', title: t('generalQuiz'), screen: 'GeneralQuiz' },
+    { id: '2', title: t('miniQuiz'), screen: 'MiniQuiz' },
+    { id: '3', title: t('imageGeneralQuiz'), screen: 'ImageGeneralQuiz' },
+    { id: '4', title: t('imageMiniQuiz'), screen: 'ImageMiniQuiz' },
+  ];
+
   const renderItem = ({ item }) => (
     <TouchableOpacity
       style={styles.card}
@@ -26,7 +29,7 @@ export default function ExamsScreen({ navigation }) {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.header}>📚 Quiz Türleri</Text>
+      <Text style={styles.header}>{t('quizTypes')}</Text>
       <FlatList
         data={quizTypes}
         renderItem={renderItem}
@@ -35,7 +38,7 @@ export default function ExamsScreen({ navigation }) {
       />
       <TouchableOpacity style={styles.button} onPress={() => navigation.navigate('Main')}>
         <Icon name="arrow-back-circle-outline" size={30} color={'white'} />
-        <Text style={styles.buttonText}>Anasayfaya Dön</Text>
+        <Text style={styles.buttonText}>{t('backToHome')}</Text>
       </TouchableOpacity>
     </View>
   );
@@ -80,7 +83,7 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
   buttonText: {
-     fontSize: 18, 
-     color: 'white',
+    fontSize: 18,
+    color: 'white',
   },
 });

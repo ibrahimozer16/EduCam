@@ -9,15 +9,15 @@ import {
   ActivityIndicator,
   Image,
 } from 'react-native';
-import { collection, getDocs, query, orderBy } from 'firebase/firestore';
 import firestore from '@react-native-firebase/firestore';
 import auth from '@react-native-firebase/auth';
-import storage from '@react-native-firebase/storage';
 import { useFocusEffect } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import Tts from 'react-native-tts';
+import { useTranslation } from 'react-i18next';
 
-export default function LibraryScreen({navigation}) {
+export default function LibraryScreen({ navigation }) {
+  const { t, i18n } = useTranslation();
   const [items, setItems] = useState([]);
   const [filteredItems, setFilteredItems] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -28,7 +28,7 @@ export default function LibraryScreen({navigation}) {
     try {
       setLoading(true);
       const userId = auth().currentUser?.uid;
-      if (!userId) throw new Error('Kullanıcı oturumu yok');
+      if (!userId) throw new Error('No user session');
 
       const userCollection = firestore()
         .collection('users')
@@ -41,7 +41,7 @@ export default function LibraryScreen({navigation}) {
       setItems(fetchedItems);
       setFilteredItems(fetchedItems);
     } catch (error) {
-      console.error('📚 Veri çekme hatası:', error);
+      console.error('Fetch error:', error);
     } finally {
       setLoading(false);
     }
@@ -55,7 +55,7 @@ export default function LibraryScreen({navigation}) {
 
   const speak = text => {
     Tts.stop();
-    Tts.speak(text, { language: 'tr-TR' });
+    Tts.speak(text, { language: i18n.language });
   };
 
   const handleSearchAndSort = useCallback(() => {
@@ -63,18 +63,22 @@ export default function LibraryScreen({navigation}) {
 
     if (searchText.trim()) {
       updatedItems = updatedItems.filter(item =>
-        (item.label_tr || '').toLowerCase().includes(searchText.toLowerCase())
+        (item[`label_${i18n.language}`] || '').toLowerCase().includes(searchText.toLowerCase())
       );
     }
 
     if (sortOrder === 'asc') {
-      updatedItems.sort((a, b) => (a.label_tr || '').localeCompare(b.label_tr || ''));
+      updatedItems.sort((a, b) =>
+        (a[`label_${i18n.language}`] || '').localeCompare(b[`label_${i18n.language}`] || '')
+      );
     } else if (sortOrder === 'desc') {
-      updatedItems.sort((a, b) => (b.label_tr || '').localeCompare(a.label_tr || ''));
+      updatedItems.sort((a, b) =>
+        (b[`label_${i18n.language}`] || '').localeCompare(a[`label_${i18n.language}`] || '')
+      );
     }
 
     setFilteredItems(updatedItems);
-  }, [items, searchText, sortOrder]);
+  }, [items, searchText, sortOrder, i18n.language]);
 
   useEffect(() => {
     handleSearchAndSort();
@@ -90,12 +94,11 @@ export default function LibraryScreen({navigation}) {
         />
       )}
       <View style={styles.labelRow}>
-        <Text style={styles.label}>{item.label_tr || item.label_en}</Text>
-        <TouchableOpacity onPress={() => speak(item.label_tr || item.label_en)}>
+        <Text style={styles.label}>{item[`label_${i18n.language}`] || item.label_en}</Text>
+        <TouchableOpacity onPress={() => speak(item[`label_${i18n.language}`] || item.label_en)}>
           <Icon name="volume-high" size={22} color="#0984e3" />
         </TouchableOpacity>
       </View>
-      {/* <Text style={styles.confidence}>Doğruluk: {(item.confidence * 100).toFixed(2)}%</Text> */}
     </View>
   );
 
@@ -105,10 +108,10 @@ export default function LibraryScreen({navigation}) {
         <ActivityIndicator size="large" color="#1e3a8a" style={{ marginTop: 30 }} />
       ) : (
         <>
-          <Text style={styles.headText}>Kütüphanem</Text>
+          <Text style={styles.headText}>{t('library')}</Text>
           <TextInput
             style={styles.searchInput}
-            placeholder="Ara..."
+            placeholder={t('searchPlaceholder') + '...'}
             placeholderTextColor="#ccc"
             value={searchText}
             onChangeText={setSearchText}
@@ -119,13 +122,13 @@ export default function LibraryScreen({navigation}) {
               style={[styles.sortButton, sortOrder === 'asc' && styles.activeSort]}
               onPress={() => setSortOrder('asc')}
             >
-              <Text style={styles.sortText}>A-Z</Text>
+              <Text style={styles.sortText}>{t('sortAZ')}</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.sortButton, sortOrder === 'desc' && styles.activeSort]}
               onPress={() => setSortOrder('desc')}
             >
-              <Text style={styles.sortText}>Z-A</Text>
+              <Text style={styles.sortText}>{t('sortZA')}</Text>
             </TouchableOpacity>
           </View>
 
@@ -136,8 +139,8 @@ export default function LibraryScreen({navigation}) {
             contentContainerStyle={{ paddingBottom: 30 }}
           />
           <TouchableOpacity style={styles.button} onPress={() => navigation.navigate('Main')}>
-            <Icon name="arrow-back-circle-outline" size={24} color={'#2d3436'} />
-            <Text style={styles.buttonText}>Anasayfaya Dön</Text>
+            <Icon name="arrow-back-circle-outline" size={24} color={'#1e3a8a'} />
+            <Text style={styles.buttonText}>{t('backToHome')}</Text>
           </TouchableOpacity>
         </>
       )}
@@ -193,7 +196,6 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginBottom: 5,
   },
-  confidence: { fontSize: 14, color: '#636e72' },
   button: {
     backgroundColor: '#dfe6e9',
     padding: 16,
@@ -205,12 +207,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   buttonText: {
-     fontSize: 18, 
-     color: '#2d3436',
+    fontSize: 18,
+    color: '#1e3a8a',
   },
   headText: {
-    fontSize: 30, 
-    color: '#2d3436',
+    fontSize: 30,
+    color: '#1e3a8a',
     alignSelf: 'center',
     justifyContent: 'center',
     marginBottom: 15,
