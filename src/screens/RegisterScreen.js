@@ -25,6 +25,11 @@ export default function RegisterScreen({ navigation }) {
   const [showDatePicker, setShowDatePicker] = useState(false);
 
   const handleRegister = async () => {
+    if (!email || !password || !fullName || !gender || !birthDate) {
+      Alert.alert('❗ ' + t('error'), t('fillAllFields'));
+      return;
+    }
+
     if (password.length !== 6 || !/^[0-9]+$/.test(password)) {
       Alert.alert('❗ ' + t('error'), t('passwordRule'));
       return;
@@ -44,7 +49,24 @@ export default function RegisterScreen({ navigation }) {
       Alert.alert('✅ ' + t('success'), t('registrationSuccess'));
       navigation.navigate('Login');
     } catch (error) {
-      Alert.alert('❌ ' + t('error'), error.message);
+      let message = '';
+
+      switch (error.code) {
+        case 'auth/email-already-in-use':
+          message = t('emailInUse');
+          break;
+        case 'auth/invalid-email':
+          message = t('invalidEmail');
+          break;
+        case 'auth/weak-password':
+          message = t('weakPassword');
+          break;
+        default:
+          message = t('unknownError');
+          break;
+      }
+
+      Alert.alert('❌ ' + t('error'), message);
     }
   };
 

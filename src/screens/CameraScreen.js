@@ -9,21 +9,22 @@ import {
   Image,
   ActivityIndicator,
   Alert,
-  BackHandler
+  BackHandler,
 } from 'react-native';
 import { Camera, useCameraDevices } from 'react-native-vision-camera';
 import RNFS from 'react-native-fs';
 import Tflite from 'tflite-react-native';
-import translations from '../jsons/translations.json';
 import { firestore, auth } from '../firebase/firebase';
 import storage from '@react-native-firebase/storage';
 import Tts from 'react-native-tts';
 import ImagePicker from 'react-native-image-crop-picker';
 import { useFocusEffect } from '@react-navigation/native';
+import { useTranslation } from 'react-i18next';
 
 const tflite = new Tflite();
 
 export default function CameraScreen() {
+  const { t } = useTranslation();
   const cameraRef = useRef(null);
   const [hasPermission, setHasPermission] = useState(false);
   const devices = useCameraDevices();
@@ -54,23 +55,19 @@ export default function CameraScreen() {
   }, []);
 
   useFocusEffect(
-      useCallback(() => {
-        const onBackPress = () => {
-          Alert.alert('Çıkış', 'Uygulamadan çıkmak istiyor musunuz?', [
-            { text: 'İptal', style: 'cancel' },
-            { text: 'Evet', onPress: () => BackHandler.exitApp() },
-          ]);
-          return true; // Geri tuşu davranışını durdur
-        };
-  
-        const subscription = BackHandler.addEventListener(
-          'hardwareBackPress',
-          onBackPress
-        );
-  
-        return () => subscription.remove(); // ❗️ removeEventListener yerine .remove()
-      }, [])
-    );
+    useCallback(() => {
+      const onBackPress = () => {
+        Alert.alert(t('exitAppTitle'), t('exitAppMessage'), [
+          { text: t('cancel'), style: 'cancel' },
+          { text: t('yes'), onPress: () => BackHandler.exitApp() },
+        ]);
+        return true;
+      };
+
+      const subscription = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+      return () => subscription.remove();
+    }, [t])
+  );
 
   useEffect(() => {
     if (devices && devices.length > 0) {
@@ -78,7 +75,6 @@ export default function CameraScreen() {
       setSelectedDevice(back ?? devices[0]);
     }
   }, [devices]);
-  
 
   useEffect(() => {
     tflite.loadModel(
@@ -92,12 +88,6 @@ export default function CameraScreen() {
         else console.log('✅ TFLite model yüklendi:', res);
       }
     );
-
-    RNFS.readFileAssets('labels.txt')
-      .then(content => {
-        console.log('📄 Etiketler (ilk 10):', content.split('\n').slice(0, 10));
-      })
-      .catch(err => console.error('❌ labels.txt okunamadı:', err));
   }, []);
 
   const takePhoto = async () => {
@@ -118,7 +108,7 @@ export default function CameraScreen() {
       freeStyleCropEnabled: true,
       hideBottomControls: true,
       mediaType: 'photo',
-      cropperToolbarTitle: 'İstediğiniz Alanı Seçin',
+      cropperToolbarTitle: t('galleryCropTitle'),
     })
       .then(image => {
         setPhotoUri(image.path);
@@ -134,7 +124,7 @@ export default function CameraScreen() {
 
   const classifyPhoto = async () => {
     if (!photoUri) {
-      Alert.alert('Hata', 'Fotoğraf bulunamadı');
+      Alert.alert('Hata', t('noPhotoAlert'));
       return;
     }
     setIsLoading(true);
@@ -165,7 +155,6 @@ export default function CameraScreen() {
     try {
       setSaveLoading(true);
       const label = prediction.label.toLowerCase().trim();
-      const translation = translations[label] || label;
       const userId = auth().currentUser.uid;
       const timestamp = Date.now();
       const filename = `prediction_${timestamp}.jpg`;
@@ -178,18 +167,18 @@ export default function CameraScreen() {
         .doc(userId)
         .collection('recognized_items')
         .add({
+          label,
           label_en: label,
-          label_tr: translation,
           confidence: prediction.confidence,
           timestamp: firestore.FieldValue.serverTimestamp(),
           photoUrl: downloadURL,
         });
 
-      Alert.alert('✅ Başarılı', 'Tahmin ve fotoğraf kaydedildi!');
+      Alert.alert('✅', t('predictionSaved'));
       resetCamera();
     } catch (err) {
       console.error('🔥 Firestore kayıt hatası:', err);
-      Alert.alert('❌ Hata', 'Veri kaydedilemedi.');
+      Alert.alert('❌', t('predictionError'));
     } finally {
       setSaveLoading(false);
     }
@@ -197,10 +186,17 @@ export default function CameraScreen() {
 
   const speakPrediction = () => {
     if (prediction) {
-      const text = translations[prediction.label] || prediction.label;
+      const key = `label_${prediction.label.toLowerCase().trim().replace(/\s+/g, '_')}`;
+      const text = t(key);
       Tts.stop();
       Tts.speak(text);
     }
+  };
+
+  const getTranslatedLabel = () => {
+    if (!prediction?.label) return '';
+    const key = `label_${prediction.label.toLowerCase().trim().replace(/\s+/g, '_')}`;
+    return t(key) || prediction.label;
   };
 
   return (
@@ -218,10 +214,10 @@ export default function CameraScreen() {
       {!photoUri ? (
         <View style={styles.buttonRow}>
           <TouchableOpacity style={styles.captureButton} onPress={takePhoto}>
-            <Text style={styles.buttonText}>📸 Fotoğraf Çek</Text>
+            <Text style={styles.buttonText}>{t('takePhoto')}</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.galleryButton} onPress={pickFromGallery}>
-            <Text style={styles.buttonText}>📁 Galeriden Seç</Text>
+            <Text style={styles.buttonText}>{t('chooseFromGallery')}</Text>
           </TouchableOpacity>
         </View>
       ) : (
@@ -235,23 +231,28 @@ export default function CameraScreen() {
             ) : prediction ? (
               <>
                 <Text style={styles.predictionText}>
-                  📌 {translations[prediction.label] || prediction.label} ({(prediction.confidence * 100).toFixed(2)}%)
+                  {t('predictionTitle', {
+                    label: getTranslatedLabel() || '---',
+                    confidence: prediction?.confidence ? (prediction.confidence * 100).toFixed(2) : '---',
+                  })}
                 </Text>
                 <TouchableOpacity style={styles.saveButton} onPress={saveToFirestore}>
-                  <Text style={styles.buttonText}>{saveLoading ? '⏳ Kaydediliyor...' : '💾 Kaydet'}</Text>
+                  <Text style={styles.buttonText}>
+                    {saveLoading ? t('saving') : t('save')}
+                  </Text>
                 </TouchableOpacity>
                 <TouchableOpacity style={styles.speakButton} onPress={speakPrediction}>
-                  <Text style={styles.buttonText}>🔊 Sesli Oku</Text>
+                  <Text style={styles.buttonText}>{t('readAloud')}</Text>
                 </TouchableOpacity>
               </>
             ) : (
               <TouchableOpacity onPress={classifyPhoto}>
-                <Text style={styles.buttonText}>🤖 Tahmin Et</Text>
+                <Text style={styles.buttonText}>{t('predict')}</Text>
               </TouchableOpacity>
             )}
 
             <TouchableOpacity onPress={resetCamera}>
-              <Text style={[styles.buttonText, { marginTop: 10 }]}>🔄 Geri Dön</Text>
+              <Text style={[styles.buttonText, { marginTop: 10 }]}>{t('reset')}</Text>
             </TouchableOpacity>
           </View>
         </>

@@ -1,3 +1,4 @@
+// MatchTruthGame.js (i18n destekli hale getirilmiş hali)
 import React, { useEffect, useState, useCallback } from 'react';
 import {
   View,
@@ -11,9 +12,11 @@ import firestore from '@react-native-firebase/firestore';
 import auth from '@react-native-firebase/auth';
 import Tts from 'react-native-tts';
 import Icon from 'react-native-vector-icons/Ionicons';
+import { useTranslation } from 'react-i18next';
 
 export default function MatchTruthGame({ route, navigation }) {
   const { mode } = route.params;
+  const { t, i18n } = useTranslation();
   const [questions, setQuestions] = useState([]);
   const [current, setCurrent] = useState(0);
   const [score, setScore] = useState(0);
@@ -23,18 +26,20 @@ export default function MatchTruthGame({ route, navigation }) {
   useEffect(() => {
     const fetchData = async () => {
       const uid = auth().currentUser?.uid;
+      const labelKey = mode === 'library' ? `label_${i18n.language}` : 'label';
+
       const query = mode === 'library'
-        ? firestore().collection('users').doc(uid).collection('recognized_items').where('label_tr', '!=', '')
-        : firestore().collection('general_quiz').where('label_tr', '!=', '');
+        ? firestore().collection('users').doc(uid).collection('recognized_items').where(labelKey, '!=', '')
+        : firestore().collection('general_quiz').where(labelKey, '!=', '');
 
       const snapshot = await query.get();
-      const raw = snapshot.docs.map(doc => doc.data()).filter(item => item.label_tr && (item.photoUrl || item.image_url));
+      const raw = snapshot.docs.map(doc => doc.data()).filter(item => item[labelKey] && (item.photoUrl || item.image_url));
 
       const uniqueLabels = new Set();
       const filtered = [];
       for (const item of raw) {
-        if (!uniqueLabels.has(item.label_tr)) {
-          uniqueLabels.add(item.label_tr);
+        if (!uniqueLabels.has(item[labelKey])) {
+          uniqueLabels.add(item[labelKey]);
           filtered.push(item);
         }
       }
@@ -43,18 +48,18 @@ export default function MatchTruthGame({ route, navigation }) {
 
       const questions = shuffled.map(item => {
         const useCorrect = Math.random() < 0.5;
-        let spokenLabel = item.label_tr;
+        let spokenLabel = item[labelKey];
 
         if (!useCorrect) {
-          const others = filtered.filter(i => i.label_tr !== item.label_tr);
-          spokenLabel = others[Math.floor(Math.random() * others.length)]?.label_tr || item.label_tr;
+          const others = filtered.filter(i => i[labelKey] !== item[labelKey]);
+          spokenLabel = others[Math.floor(Math.random() * others.length)]?.[labelKey] || item[labelKey];
         }
 
         return {
           image: item.photoUrl || item.image_url,
-          correctLabel: item.label_tr,
+          correctLabel: item[labelKey],
           spokenLabel,
-          isMatch: spokenLabel === item.label_tr,
+          isMatch: spokenLabel === item[labelKey],
         };
       });
 
@@ -62,14 +67,13 @@ export default function MatchTruthGame({ route, navigation }) {
     };
 
     fetchData();
-  }, [mode]);
+  }, [mode, i18n.language]);
 
-  useEffect(() => {
-    if (showResult) {
-      saveResult();
-    }
-  }, [showResult, saveResult]);
-
+  const getFeedback = useCallback((puan) => {
+    if (puan >= 40) return 'perfectJob';
+    if (puan >= 25) return 'goodJob';
+    return t('morePractice');
+  }, [t]);
 
   const saveResult = useCallback(async () => {
     const uid = auth().currentUser?.uid;
@@ -81,7 +85,7 @@ export default function MatchTruthGame({ route, navigation }) {
         .doc(uid)
         .collection('game_results')
         .add({
-          type: 'Doğru-Yanlış Oyunu',
+          type: 'matchTruthGame',
           mode: mode,
           score: score,
           total: questions.length * 10,
@@ -93,17 +97,24 @@ export default function MatchTruthGame({ route, navigation }) {
     } catch (err) {
       console.error('❌ Firestore kayıt hatası:', err);
     }
-  }, [mode, score, questions.length]);
+  }, [mode, score, questions.length, getFeedback]);
 
-  const getFeedback = (puan) => {
-    if (puan >= 40) return '🎯 Mükemmel iş!';
-    if (puan >= 25) return '👍 Gayet iyi!';
-    return '🧠 Geliştirmen gerek.';
-  };
+  useEffect(() => {
+    if (showResult) {
+      saveResult();
+    }
+  }, [showResult, saveResult]);
 
   const speak = (text) => {
+    const langMap = {
+      tr: 'tr-TR',
+      en: 'en-US',
+      es: 'es-ES',
+      zh: 'zh-CN',
+    };
+    const langCode = langMap[i18n.language] || 'en-US';
     Tts.stop();
-    Tts.speak(text, { language: 'tr-TR' });
+    Tts.speak(text, { language: langCode });
   };
 
   const handleAnswer = (userChoice) => {
@@ -123,22 +134,17 @@ export default function MatchTruthGame({ route, navigation }) {
   };
 
   if (questions.length === 0) {
-    return <View style={styles.center}><Text>Yükleniyor...</Text></View>;
+    return <View style={styles.center}><Text>{t('loading')}</Text></View>;
   }
 
   if (showResult) {
-    let yorum = '';
-    if (score >= 40) yorum = '🎯 Mükemmel iş!';
-    else if (score >= 25) yorum = '👍 Gayet iyi!';
-    else yorum = '🧠 Geliştirmen gerek.';
-
     return (
       <View style={styles.center}>
-        <Text style={styles.resultText}>🎉 Oyun Bitti!</Text>
-        <Text style={styles.scoreText}>Puan: {score} / {questions.length * 10}</Text>
-        <Text style={styles.feedback}>{yorum}</Text>
+        <Text style={styles.resultText}>{t('gameOver')}</Text>
+        <Text style={styles.scoreText}>{t('score')} {score} / {questions.length * 10}</Text>
+        <Text style={styles.feedback}>{t(getFeedback(score))}</Text>
         <TouchableOpacity onPress={() => navigation.navigate('Games')} style={styles.returnButton}>
-          <Text style={styles.returnText}>Ana Sayfa</Text>
+          <Text style={styles.returnText}>{t('backToGames')}</Text>
         </TouchableOpacity>
       </View>
     );
@@ -149,41 +155,33 @@ export default function MatchTruthGame({ route, navigation }) {
 
   return (
     <ScrollView style={styles.container}>
-      <Text style={styles.title}>Soru {current + 1} / {questions.length}</Text>
-      <Text style={styles.scoreText}>Puan: {score} / {questions.length * 10}</Text>
+      <Text style={styles.title}>{t('question', { index: current + 1, total: questions.length })}</Text>
+      <Text style={styles.scoreText}>{t('score')}: {score} / {questions.length * 10}</Text>
 
       <Image source={{ uri: currentQ.image }} style={styles.image} />
 
       <View style={styles.labelRow}>
-        <Text style={styles.labelText}>{currentQ.spokenLabel}</Text>
-        <TouchableOpacity onPress={() => speak(currentQ.spokenLabel)}>
+        <Text style={styles.labelText}>{t(`label_${currentQ.spokenLabel}`)}</Text>
+        <TouchableOpacity onPress={() => speak(t(`label_${currentQ.spokenLabel}`))}>
           <Icon name="volume-high" size={24} color="#0984e3" />
         </TouchableOpacity>
       </View>
 
       <View style={styles.answerButtons}>
         <TouchableOpacity
-          style={[
-            styles.answerButton, 
-            userAnswer && currentQ.isMatch && styles.correct,
-            userAnswer && !currentQ.isMatch && styles.incorrect
-          ]}
+          style={[styles.answerButton, userAnswer && currentQ.isMatch && styles.correct, userAnswer && !currentQ.isMatch && styles.incorrect]}
           onPress={() => handleAnswer(true)}
           disabled={!!userAnswer}
         >
-          <Text style={styles.answerText}>✅ Doğru</Text>
+          <Text style={styles.answerText}>{t('true')}</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={[
-            styles.answerButton, 
-            userAnswer && !currentQ.isMatch && styles.correct,
-            userAnswer && currentQ.isMatch && styles.incorrect
-          ]}
+          style={[styles.answerButton, userAnswer && !currentQ.isMatch && styles.correct, userAnswer && currentQ.isMatch && styles.incorrect]}
           onPress={() => handleAnswer(false)}
           disabled={!!userAnswer}
         >
-          <Text style={styles.answerText}>❌ Yanlış</Text>
+          <Text style={styles.answerText}>{t('false')}</Text>
         </TouchableOpacity>
       </View>
 
@@ -202,7 +200,7 @@ export default function MatchTruthGame({ route, navigation }) {
 const styles = StyleSheet.create({
   container: { flex: 1, padding: 20, backgroundColor: '#f5f6fa' },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  title: { fontSize: 22, fontWeight: 'bold', marginBottom: 10, textAlign: 'center' },
+  title: { fontSize: 22, fontWeight: 'bold', marginBottom: 10, textAlign: 'center', color: '#0984e3' },
   image: { width: '100%', height: 200, resizeMode: 'contain', borderRadius: 12, marginVertical: 20 },
   labelRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, marginBottom: 12 },
   labelText: { fontSize: 20, fontWeight: 'bold', color: '#2d3436' },

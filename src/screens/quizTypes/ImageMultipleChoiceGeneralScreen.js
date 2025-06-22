@@ -1,12 +1,13 @@
-// Genel Quiz: Fotoğrafa Göre Şık Seçme (Geliştirilmiş)
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, TouchableOpacity, Image, StyleSheet, ScrollView } from 'react-native';
 import firestore from '@react-native-firebase/firestore';
 import auth from '@react-native-firebase/auth';
 import Icon from 'react-native-vector-icons/Ionicons';
 import Tts from 'react-native-tts';
+import { useTranslation } from 'react-i18next';
 
 export default function ImageMultipleChoiceGeneralScreen({ navigation }) {
+  const { t, i18n } = useTranslation();
   const [questions, setQuestions] = useState([]);
   const [current, setCurrent] = useState(0);
   const [selectedAnswers, setSelectedAnswers] = useState({});
@@ -18,27 +19,25 @@ export default function ImageMultipleChoiceGeneralScreen({ navigation }) {
     const fetchQuestions = async () => {
       const snapshot = await firestore()
         .collection('general_quiz')
-        .where('label_tr', '!=', '')
+        .where('label', '!=', '')
         .get();
 
-      const data = snapshot.docs
-        .map(doc => doc.data())
-        .filter(item => item.label_tr && item.label_tr.trim() !== '');
+      const data = snapshot.docs.map(doc => doc.data()).filter(item => item.label);
 
-      const uniqueLabels = [...new Set(data.map(item => item.label_tr))];
+      const uniqueLabels = [...new Set(data.map(item => item.label))];
       const selectedLabels = shuffleArray(uniqueLabels).slice(0, 10);
-      const selectedQuestions = selectedLabels.map(label => {
-        const q = data.find(item => item.label_tr === label);
-        return q;
-      });
+      const selectedQuestions = selectedLabels
+        .map(label => data.find(item => item.label === label))
+        .filter(Boolean);
 
       setQuestions(selectedQuestions);
 
       const newMap = {};
       selectedQuestions.forEach(q => {
-        const others = data.filter(item => item.label_tr !== q.label_tr);
+        const key = q.label;
+        const others = data.filter(item => item.label !== key);
         const images = shuffleArray([q, ...shuffleArray(others).slice(0, 3)]);
-        newMap[q.label_tr] = images;
+        newMap[key] = images;
       });
 
       setOptionsMap(newMap);
@@ -48,61 +47,67 @@ export default function ImageMultipleChoiceGeneralScreen({ navigation }) {
   }, []);
 
   useEffect(() => {
-  if (showResult) {
-    const saveResult = async () => {
-      const uid = auth().currentUser?.uid;
-      if (!uid) return;
+    if (showResult) {
+      const saveResult = async () => {
+        const uid = auth().currentUser?.uid;
+        if (!uid) return;
 
-      const total = questions.length * 10;
+        const total = questions.length * 10;
+        const feedback = getFeedback(score, total);
 
-      // Feedback mesajını doğrudan burada belirleyelim
-      let feedback = '';
-      if (score >= 80) feedback = '🌟 Mükemmel!';
-      else if (score >= 60) feedback = '👍 İyi iş!';
-      else if (score >= 30) feedback = '🔄 Geliştirmen gerek!';
-      else feedback = '😅 Daha çok çalışmalısın!';
+        try {
+          await firestore()
+            .collection('users')
+            .doc(uid)
+            .collection('exam_results')
+            .add({
+              type: 'imageGeneralQuiz',
+              mode: 'general',
+              score,
+              total,
+              feedback,
+              date: firestore.FieldValue.serverTimestamp(),
+            });
+        } catch (err) {
+          console.error('❌ Firestore kayıt hatası:', err);
+        }
 
-      try {
-        await firestore()
-          .collection('users')
-          .doc(uid)
-          .collection('exam_results')
-          .add({
-            type: 'Resimli Genel Sınav',
-            mode: 'general',
-            score: score,
-            total: total,
-            feedback: feedback,
-            date: firestore.FieldValue.serverTimestamp(),
-          });
+        Tts.stop();
+        Tts.speak(feedback, { language: getLocaleCode(i18n.language) });
+      };
 
-        console.log('✅ Görsel şık seçme sınav sonucu kaydedildi.');
-      } catch (err) {
-        console.error('❌ Firestore kayıt hatası:', err);
-      }
-    };
+      saveResult();
+    }
+  }, [showResult, score, questions.length, i18n.language, t, getFeedback]);
 
-    saveResult();
-  }
-}, [showResult, score, questions.length]);
+  const shuffleArray = array => [...array].sort(() => Math.random() - 0.5);
 
-
-  const shuffleArray = (array) => [...array].sort(() => Math.random() - 0.5);
+  const getLocaleCode = lang => {
+    switch (lang) {
+      case 'tr': return 'tr-TR';
+      case 'en': return 'en-US';
+      case 'es': return 'es-ES';
+      case 'zh': return 'zh-CN';
+      default: return 'en-US';
+    }
+  };
 
   const speak = (text) => {
+    const localized = t(`label_${text}`) || text;
     Tts.stop();
-    Tts.speak(text, { language: 'tr-TR' });
+    Tts.speak(localized, { language: getLocaleCode(i18n.language) });
   };
 
   const handleSelect = (option) => {
     const currentQuestion = questions[current];
-    const isCorrect = option.label_tr === currentQuestion.label_tr;
+    const key = currentQuestion.label;
+    const isCorrect = option.label === key;
 
     if (selectedAnswers[current] !== undefined) return;
 
     setSelectedAnswers(prev => ({
       ...prev,
-      [current]: { selected: option.label_tr, correct: isCorrect }
+      [current]: { selected: option.label, correct: isCorrect },
     }));
 
     if (isCorrect) setScore(prev => prev + 10);
@@ -117,24 +122,27 @@ export default function ImageMultipleChoiceGeneralScreen({ navigation }) {
     if (current > 0) setCurrent(prev => prev - 1);
   };
 
-  const getFeedbackMessage = () => {
-    if (score >= 80) return '🌟 Mükemmel!';
-    if (score >= 60) return '👍 İyi iş!';
-    if (score >= 30) return '🔄 Geliştirmen gerek!';
-    return '😅 Daha çok çalışmalısın!';
-  };
+  const getFeedback = useCallback((score, total) => {
+    const percent = (score / total) * 100;
+    if (percent >= 80) return 'perfectJob';
+    if (percent >= 60) return 'goodJob';
+    return t('morePractice');
+  }, [t]);
 
   if (questions.length === 0) {
-    return <View style={styles.center}><Text>Yükleniyor...</Text></View>;
+    return <View style={styles.center}><Text>{t('loading')}</Text></View>;
   }
 
   if (showResult) {
+    const feedback = getFeedback(score, questions.length * 10);
+
     return (
       <View style={styles.center}>
-        <Text style={styles.resultText}>🎉 Sınav Bitti!</Text>
-        <Text style={styles.scoreText}>Puan: {score} / {questions.length * 10}</Text>
-        <Text style={styles.feedback}>{getFeedbackMessage()}</Text>
-        <TouchableOpacity onPress={() => speak(getFeedbackMessage())}>
+        <Text style={styles.resultText}>{t('gameOver')}</Text>
+        <Text style={styles.scoreText}>{t('game_completed', { score })}</Text>
+        <Text style={styles.feedback}>{t(feedback)}</Text>
+
+        <TouchableOpacity onPress={() => speak(t(feedback))}>
           <Icon name="volume-high" size={28} color="#0984e3" />
         </TouchableOpacity>
 
@@ -149,14 +157,14 @@ export default function ImageMultipleChoiceGeneralScreen({ navigation }) {
               setQuestions(shuffleArray(questions));
             }}
           >
-            <Text style={styles.resultButtonText}>🔁 Tekrar Dene</Text>
+            <Text style={styles.resultButtonText}>{t('play_again')}</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
             style={[styles.resultButton, { backgroundColor: '#6c5ce7' }]}
             onPress={() => navigation.goBack()}
           >
-            <Text style={styles.resultButtonText}>🔙 Sınavlar Ekranına Dön</Text>
+            <Text style={styles.resultButtonText}>{t('backToHome')}</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -164,16 +172,17 @@ export default function ImageMultipleChoiceGeneralScreen({ navigation }) {
   }
 
   const currentQuestion = questions[current];
-  const options = optionsMap[currentQuestion.label_tr] || [];
+  const labelKey = currentQuestion.label;
+  const options = optionsMap[labelKey] || [];
   const selected = selectedAnswers[current]?.selected;
 
   return (
     <ScrollView style={styles.container}>
       <View style={styles.labelRow}>
-        <Text style={styles.title}>Soru {current + 1} / {questions.length}</Text>
+        <Text style={styles.title}>{t('question', { index: current + 1, total: questions.length })}</Text>
         <View style={styles.labelContainer}>
-          <Text style={styles.labelText}>{currentQuestion.label_tr}</Text>
-          <TouchableOpacity onPress={() => speak(currentQuestion.label_tr)}>
+          <Text style={styles.labelText}>{t(`label_${labelKey}`) || labelKey}</Text>
+          <TouchableOpacity onPress={() => speak(labelKey)}>
             <Icon name="volume-high" size={26} color="#0984e3" />
           </TouchableOpacity>
         </View>
@@ -181,8 +190,9 @@ export default function ImageMultipleChoiceGeneralScreen({ navigation }) {
 
       <View style={styles.optionsContainer}>
         {options.map((option, index) => {
-          const isSelected = selected === option.label_tr;
-          const isCorrect = option.label_tr === currentQuestion.label_tr;
+          const optionLabel = option.label;
+          const isSelected = selected === optionLabel;
+          const isCorrect = optionLabel === labelKey;
           const showColor = selected !== undefined;
 
           let backgroundColor = '#dfe6e9';
@@ -225,7 +235,7 @@ const styles = StyleSheet.create({
   container: { flex: 1, padding: 20, backgroundColor: '#ecf0f1' },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   labelRow: { marginBottom: 12 },
-  title: { fontSize: 20, fontWeight: 'bold', marginBottom: 10, textAlign: 'center' },
+  title: { fontSize: 20, fontWeight: 'bold', marginBottom: 10, textAlign: 'center', color: '#0984e3' },
   labelContainer: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10 },
   labelText: { fontSize: 22, fontWeight: 'bold', color: '#2d3436' },
   optionsContainer: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-around', gap: 12 },

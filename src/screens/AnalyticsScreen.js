@@ -49,7 +49,7 @@ export default function AnalyticsScreen({ navigation }) {
 
     return (
       <View key={type} style={styles.chartContainer}>
-        <Text style={styles.chartTitle}>{type}</Text>
+        <Text style={styles.chartTitle}>{t(type)}</Text>
         <LineChart
           data={{
             labels,
@@ -95,7 +95,10 @@ export default function AnalyticsScreen({ navigation }) {
 
         <Text style={styles.header}>{activeTab === 'game' ? t('gameResults') : t('examResults')}</Text>
 
-        {Object.keys(dataByType).map((type, idx) => renderChart(type, idx))}
+        {Object.keys(dataByType).length > 0 
+          ? Object.keys(dataByType).map((type, idx) => renderChart(type, idx)) 
+          : <Text style={styles.empty}>{t('noResults')}</Text>
+        }
       </ScrollView>
 
       <TouchableOpacity style={styles.button} onPress={() => navigation.navigate('Main')}>
@@ -180,4 +183,5 @@ const styles = StyleSheet.create({
     fontSize: 18,
     color: '#2d3436',
   },
+  empty: { textAlign: 'center', marginVertical: 10, color: 'gray', marginTop: 200 },
 });

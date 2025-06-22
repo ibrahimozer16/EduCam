@@ -1,11 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, TouchableOpacity, Image, StyleSheet, ScrollView } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import firestore from '@react-native-firebase/firestore';
 import auth from '@react-native-firebase/auth';
 import Tts from 'react-native-tts';
+import { useTranslation } from 'react-i18next';
 
 export default function GeneralQuizScreen({ navigation }) {
+  const { t, i18n } = useTranslation();
   const [questions, setQuestions] = useState([]);
   const [current, setCurrent] = useState(0);
   const [selectedAnswers, setSelectedAnswers] = useState({});
@@ -17,23 +19,22 @@ export default function GeneralQuizScreen({ navigation }) {
     const fetchQuestions = async () => {
       const snapshot = await firestore()
         .collection('general_quiz')
-        .where('label_tr', '!=', '')
         .get();
 
-      const allData = snapshot.docs
-        .map(doc => doc.data())
-        .filter((item, index, self) =>
-          index === self.findIndex(t => t.label_tr === item.label_tr)
-        );
+      const allData = snapshot.docs.map(doc => doc.data());
 
-      const shuffledData = shuffleArray(allData).slice(0, 10);
+      const uniqueByLabel = allData.filter(
+        (item, index, self) => index === self.findIndex(t => t.label === item.label)
+      );
+
+      const shuffledData = shuffleArray(uniqueByLabel).slice(0, 10);
       setQuestions(shuffledData);
 
       const newMap = {};
       shuffledData.forEach(q => {
-        const others = allData.map(item => item.label_tr).filter(label => label !== q.label_tr);
-        const options = shuffleArray([q.label_tr, ...shuffleArray(others).slice(0, 3)]);
-        newMap[q.label_tr] = options;
+        const others = uniqueByLabel.map(item => item.label).filter(label => label !== q.label);
+        const options = shuffleArray([q.label, ...shuffleArray(others).slice(0, 3)]);
+        newMap[q.label] = options;
       });
       setOptionsMap(newMap);
     };
@@ -49,43 +50,35 @@ export default function GeneralQuizScreen({ navigation }) {
 
         const feedback = getFeedback(score, questions.length * 10);
 
-        try {
-          await firestore()
-            .collection('users')
-            .doc(uid)
-            .collection('exam_results')
-            .add({
-              type: 'Genel Sınav',
-              score: score,
-              total: questions.length * 10,
-              feedback: feedback,
-              mode: 'general',
-              date: firestore.FieldValue.serverTimestamp(),
-            });
-
-          console.log('✅ Sınav sonucu ve yorum kaydedildi');
-        } catch (err) {
-          console.error('❌ Firestore kayıt hatası:', err);
-        }
+        await firestore()
+          .collection('users')
+          .doc(uid)
+          .collection('exam_results')
+          .add({
+            type: 'generalQuiz',
+            score,
+            total: questions.length * 10,
+            feedback,
+            mode: 'general',
+            date: firestore.FieldValue.serverTimestamp(),
+          });
       };
 
       saveResult();
     }
-  }, [showResult, questions.length, score]);
+  }, [showResult, questions.length, score, getFeedback]);
 
-  const shuffleArray = (array) => {
-    return [...array].sort(() => Math.random() - 0.5);
-  };
+  const shuffleArray = array => [...array].sort(() => Math.random() - 0.5);
 
-  const handleSelect = (option) => {
+  const handleSelect = option => {
     const currentQuestion = questions[current];
-    const isCorrect = option === currentQuestion.label_tr;
+    const isCorrect = option === currentQuestion.label;
 
     if (selectedAnswers[current] !== undefined) return;
 
     setSelectedAnswers(prev => ({
       ...prev,
-      [current]: { selected: option, correct: isCorrect }
+      [current]: { selected: option, correct: isCorrect },
     }));
 
     if (isCorrect) setScore(prev => prev + 10);
@@ -100,42 +93,40 @@ export default function GeneralQuizScreen({ navigation }) {
   };
 
   const goBack = () => {
-    if (current > 0) {
-      setCurrent(prev => prev - 1);
-    }
+    if (current > 0) setCurrent(prev => prev - 1);
   };
 
-  const speak = (text) => {
+  const speak = label => {
+    const text = t(`label_${label}`) || label;
     Tts.stop();
-    Tts.speak(text, { language: 'tr-TR' });
+    Tts.speak(text);
   };
 
-  const getFeedback = (score, total) => {
+  const getFeedback = useCallback((score, total) => {
     const percent = (score / total) * 100;
-    if (percent >= 80) return 'Mükemmel bir performans!';
-    if (percent >= 60) return 'Gayet iyi, biraz daha çalış!';
-    return 'Geliştirmen gerekiyor, tekrar dene!';
-  };
+    if (percent >= 80) return 'perfectJob';
+    if (percent >= 60) return 'goodJob';
+    return t('morePractice');
+  }, [t]);
 
   if (questions.length === 0) {
     return (
       <View style={styles.center}>
-        <Text>Yükleniyor...</Text>
+        <Text>{t('loading')}</Text>
       </View>
     );
   }
 
-
   if (showResult) {
     const feedback = getFeedback(score, questions.length * 10);
     Tts.stop();
-    Tts.speak(feedback, { language: 'tr-TR' });
+    Tts.speak(feedback);
 
     return (
       <View style={styles.center}>
-        <Text style={styles.resultText}>🎉 Sınav Bitti!</Text>
-        <Text style={styles.scoreText}>Toplam Puan: {score} / {questions.length * 10}</Text>
-        <Text style={styles.scoreText}>{feedback}</Text>
+        <Text style={styles.resultText}>{t('gameOver')}</Text>
+        <Text style={styles.scoreText}>{t('game_completed', { score })}</Text>
+        <Text style={styles.scoreText}>{t(feedback)}</Text>
 
         <View style={styles.resultButtons}>
           <TouchableOpacity
@@ -148,14 +139,14 @@ export default function GeneralQuizScreen({ navigation }) {
               setQuestions(shuffleArray(questions));
             }}
           >
-            <Text style={styles.resultButtonText}>🔁 Tekrar Dene</Text>
+            <Text style={styles.resultButtonText}>{t('play_again')}</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
             style={[styles.resultButton, { backgroundColor: '#6c5ce7' }]}
             onPress={() => navigation.goBack()}
           >
-            <Text style={styles.resultButtonText}>🔙 Sınavlar Ekranına Dön</Text>
+            <Text style={styles.resultButtonText}>{t('go_back')}</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -163,25 +154,24 @@ export default function GeneralQuizScreen({ navigation }) {
   }
 
   const currentQuestion = questions[current];
-  const options = optionsMap[currentQuestion.label_tr] || [];
+  const options = optionsMap[currentQuestion.label] || [];
   const selected = selectedAnswers[current]?.selected;
 
   return (
     <ScrollView style={styles.container}>
-      <Text style={styles.title}>Soru {current + 1} / {questions.length}</Text>
+      <Text style={styles.title}>
+        {t('question', { index: current + 1, total: questions.length })}
+      </Text>
       <Image source={{ uri: currentQuestion.image_url }} style={styles.image} />
 
-      <TouchableOpacity
-        style={styles.soundButton}
-        onPress={() => speak(currentQuestion.label_tr)}
-      >
+      <TouchableOpacity style={styles.soundButton} onPress={() => speak(currentQuestion.label)}>
         <Icon name="volume-high" size={30} color="#6c5ce7" />
       </TouchableOpacity>
 
       <View style={styles.optionsContainer}>
         {options.map((option, index) => {
           const isSelected = selected === option;
-          const isCorrect = currentQuestion.label_tr === option;
+          const isCorrect = currentQuestion.label === option;
           const showColor = selected !== undefined;
 
           let backgroundColor = '#dfe6e9';
@@ -198,7 +188,7 @@ export default function GeneralQuizScreen({ navigation }) {
               onPress={() => handleSelect(option)}
               disabled={selected !== undefined}
             >
-              <Text style={styles.optionText}>{option}</Text>
+              <Text style={styles.optionText}>{t(`label_${option}`) || option}</Text>
             </TouchableOpacity>
           );
         })}
@@ -208,10 +198,7 @@ export default function GeneralQuizScreen({ navigation }) {
         <TouchableOpacity onPress={goBack} disabled={current === 0}>
           <Icon name="arrow-back-circle" size={40} color={current === 0 ? '#ccc' : '#6c5ce7'} />
         </TouchableOpacity>
-        <TouchableOpacity
-          onPress={goNext}
-          disabled={selected === undefined}
-        >
+        <TouchableOpacity onPress={goNext} disabled={selected === undefined}>
           <Icon
             name={current + 1 === questions.length ? 'checkmark-circle' : 'arrow-forward-circle'}
             size={40}
@@ -226,7 +213,7 @@ export default function GeneralQuizScreen({ navigation }) {
 const styles = StyleSheet.create({
   container: { flex: 1, padding: 20, backgroundColor: '#f1f2f6' },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  title: { fontSize: 22, fontWeight: 'bold', marginBottom: 10, textAlign: 'center' },
+  title: { fontSize: 22, fontWeight: 'bold', marginBottom: 10, textAlign: 'center', color: '#6c5ce7' },
   image: { width: '100%', height: 200, resizeMode: 'contain', borderRadius: 12, backgroundColor: '#dfe6e9' },
   soundButton: { alignItems: 'center', marginTop: 10 },
   optionsContainer: { marginTop: 20 },

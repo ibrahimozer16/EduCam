@@ -54,7 +54,7 @@ export default function ImageWordMatchScreen({ route }) {
         .doc(uid)
         .collection('game_results')
         .add({
-          type: 'Görsel-Kelime Eşleştirme Oyunu',
+          type: 'imageWordMatchDemo',
           mode: mode,
           score: puan,
           total: 50,

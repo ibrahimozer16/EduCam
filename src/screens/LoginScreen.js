@@ -14,23 +14,50 @@ import auth from '@react-native-firebase/auth';
 import { useTranslation } from 'react-i18next';
 import i18n from '../i18n/i18n';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import DropDownPicker from 'react-native-dropdown-picker';
 
 export default function LoginScreen({ navigation }) {
   const { t } = useTranslation();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [selectedLang, setSelectedLang] = useState(i18n.language);
+  const [value, setValue] = useState(i18n.language);
 
   const handleLogin = async () => {
+    if (!email || !password) {
+      Alert.alert('⚠️', t('fillAllFields') || 'Lütfen tüm alanları doldurun.');
+      return;
+    }
+
     try {
       await auth().signInWithEmailAndPassword(email, password);
-      Alert.alert('✅', t('registrationSuccess'));
+      Alert.alert('✅', t('loginSuccess'));
       navigation.reset({
         index: 0,
         routes: [{ name: 'Main' }],
       });
     } catch (error) {
-      Alert.alert('❌', error.message);
+      let message = '';
+
+      switch (error.code) {
+        case 'auth/invalid-email':
+          message = t('invalidEmail') || 'Geçersiz e-posta adresi.';
+          break;
+        case 'auth/user-not-found':
+          message = t('userNotFound') || 'Böyle bir kullanıcı bulunamadı.';
+          break;
+        case 'auth/wrong-password':
+          message = t('wrongPassword') || 'Şifre hatalı.';
+          break;
+        case 'auth/too-many-requests':
+          message = t('tooManyRequests') || 'Çok fazla deneme yapıldı. Lütfen sonra tekrar deneyin.';
+          break;
+        default:
+          message = t('unknownError') || 'Bir hata oluştu. Lütfen tekrar deneyin.';
+          break;
+      }
+
+      Alert.alert('❌', message);
     }
   };
 
@@ -38,6 +65,7 @@ export default function LoginScreen({ navigation }) {
     await i18n.changeLanguage(lang);
     await AsyncStorage.setItem('userLang', lang);
     setSelectedLang(lang);
+    setValue(lang);
   };
 
   useEffect(() => {
@@ -45,6 +73,7 @@ export default function LoginScreen({ navigation }) {
       if (storedLang && storedLang !== i18n.language) {
         i18n.changeLanguage(storedLang);
         setSelectedLang(storedLang);
+        setValue(storedLang);
       }
     });
   }, []);
@@ -52,38 +81,11 @@ export default function LoginScreen({ navigation }) {
   return (
     <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
       <ScrollView
-        contentContainerStyle={styles.container}
+        contentContainerStyle={[styles.container, { minHeight: '100%' }]}
         keyboardShouldPersistTaps="handled"
       >
         <View style={styles.inner}>
           <Text style={styles.title}>{t('loginTitle')}</Text>
-
-          <View style={styles.langRow}>
-            <TouchableOpacity
-              style={[styles.langButton, selectedLang === 'tr' && styles.langSelected]}
-              onPress={() => changeLanguage('tr')}
-            >
-              <Text style={styles.langText}>🇹🇷 Türkçe</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.langButton, selectedLang === 'en' && styles.langSelected]}
-              onPress={() => changeLanguage('en')}
-            >
-              <Text style={styles.langText}>🇺🇸 English</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.langButton, selectedLang === 'es' && styles.langSelected]}
-              onPress={() => changeLanguage('es')}
-            >
-              <Text style={styles.langText}>🇪🇸 Español</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.langButton, selectedLang === 'zh' && styles.langSelected]}
-              onPress={() => changeLanguage('zh')}
-            >
-              <Text style={styles.langText}>🇨🇳 中文</Text>
-            </TouchableOpacity>
-          </View>
 
           <TextInput
             style={styles.input}
@@ -111,6 +113,33 @@ export default function LoginScreen({ navigation }) {
           <TouchableOpacity onPress={() => navigation.navigate('Register')}>
             <Text style={styles.registerText}>{t('registerPrompt')}</Text>
           </TouchableOpacity>
+
+          <View style={styles.langRow}>
+            <TouchableOpacity
+              style={[styles.langButton, selectedLang === 'tr' && styles.langSelected]}
+              onPress={() => changeLanguage('tr')}
+            >
+              <Text style={styles.langText}>🇹🇷 Türkçe</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.langButton, selectedLang === 'en' && styles.langSelected]}
+              onPress={() => changeLanguage('en')}
+            >
+              <Text style={styles.langText}>🇺🇸 English</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.langButton, selectedLang === 'es' && styles.langSelected]}
+              onPress={() => changeLanguage('es')}
+            >
+              <Text style={styles.langText}>🇪🇸 Español</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.langButton, selectedLang === 'zh' && styles.langSelected]}
+              onPress={() => changeLanguage('zh')}
+            >
+              <Text style={styles.langText}>🇨🇳 中文</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </ScrollView>
     </TouchableWithoutFeedback>
@@ -165,7 +194,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     flexWrap: 'wrap',
     gap: 10,
-    marginBottom: 20,
+    marginTop: 20,
   },
   langButton: {
     paddingVertical: 6,

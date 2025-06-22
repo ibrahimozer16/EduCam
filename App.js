@@ -45,27 +45,30 @@ import AnalyticsScreen from './src/screens/AnalyticsScreen.js';
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
 
-const MainTabNavigator = () => (
-  <Tab.Navigator
-    initialRouteName='Home'
-    screenOptions={({ route }) => ({
-      tabBarIcon: ({ color, size }) => {
-        let iconName;
-        if (route.name === 'Camera') iconName = 'camera-outline';
-        else if (route.name === 'Home') iconName = 'home-outline';
-        else if (route.name === 'Settings') iconName = 'settings-outline';
-        return <Icon name={iconName} size={size} color={color} />;
-      },
-      tabBarActiveTintColor: '#1e3a8a',
-      tabBarInactiveTintColor: 'gray',
-      tabBarStyle: { backgroundColor: '#fff', paddingBottom: 5 },
-    })}
-  >
-    <Tab.Screen name="Camera" component={CameraScreen} options={{ headerShown: false }} />
-    <Tab.Screen name="Home" component={HomeScreen} options={{ headerShown: false }} />
-    <Tab.Screen name="Settings" component={SettingScreen} options={{ headerShown: false }} />
-  </Tab.Navigator>
-);
+const MainTabNavigator = () => {
+  const { t } = useTranslation();
+  return (
+    <Tab.Navigator
+      initialRouteName='Home'
+      screenOptions={({ route }) => ({
+        tabBarIcon: ({ color, size }) => {
+          let iconName;
+          if (route.name === 'Camera') iconName = 'camera-outline';
+          else if (route.name === 'Home') iconName = 'home-outline';
+          else if (route.name === 'Settings') iconName = 'settings-outline';
+          return <Icon name={iconName} size={size} color={color} />;
+        },
+        tabBarActiveTintColor: '#1e3a8a',
+        tabBarInactiveTintColor: 'gray',
+        tabBarStyle: { backgroundColor: '#fff', paddingBottom: 5 },
+      })}
+    >
+      <Tab.Screen name="Camera" component={CameraScreen} options={{ headerShown: false, tabBarLabel: t('camera') }} />
+      <Tab.Screen name="Home" component={HomeScreen} options={{ headerShown: false, tabBarLabel: t('home') }} />
+      <Tab.Screen name="Settings" component={SettingScreen} options={{ headerShown: false, tabBarLabel: t('settings') }} />
+    </Tab.Navigator>
+    )
+  };
 
 const AuthStack = () => (
   <Stack.Navigator screenOptions={{ headerShown: false }}>

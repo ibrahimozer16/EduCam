@@ -11,8 +11,10 @@ import firestore from '@react-native-firebase/firestore';
 import auth from '@react-native-firebase/auth';
 import Icon from 'react-native-vector-icons/Ionicons';
 import Tts from 'react-native-tts';
+import { useTranslation } from 'react-i18next';
 
 export default function MiniQuizScreen({ navigation }) {
+  const { t, i18n } = useTranslation();
   const [questions, setQuestions] = useState([]);
   const [current, setCurrent] = useState(0);
   const [selectedAnswers, setSelectedAnswers] = useState({});
@@ -26,18 +28,17 @@ export default function MiniQuizScreen({ navigation }) {
       try {
         const snapshot = await firestore()
           .collection(`users/${userId}/recognized_items`)
-          .where('label_tr', '!=', '')
+          .where(`label_${i18n.language}`, '!=', '')
           .get();
 
-        const raw = snapshot.docs
-          .map(doc => doc.data())
-          .filter(item => item.label_tr && item.label_tr.trim() !== '');
+        const raw = snapshot.docs.map(doc => doc.data());
 
         const uniqueLabels = new Set();
         const filtered = [];
         for (const item of raw) {
-          if (!uniqueLabels.has(item.label_tr)) {
-            uniqueLabels.add(item.label_tr);
+          const key = item[`label_${i18n.language}`];
+          if (key && !uniqueLabels.has(key)) {
+            uniqueLabels.add(key);
             filtered.push(item);
           }
         }
@@ -47,9 +48,12 @@ export default function MiniQuizScreen({ navigation }) {
 
         const newMap = {};
         shuffled.forEach(q => {
-          const others = filtered.map(item => item.label_tr).filter(label => label !== q.label_tr);
-          const options = shuffleArray([q.label_tr, ...shuffleArray(others).slice(0, 3)]);
-          newMap[q.label_tr] = options;
+          const correctLabel = q[`label_${i18n.language}`];
+          const others = filtered
+            .map(item => item[`label_${i18n.language}`])
+            .filter(label => label !== correctLabel);
+          const options = shuffleArray([correctLabel, ...shuffleArray(others).slice(0, 3)]);
+          newMap[correctLabel] = options;
         });
 
         setOptionsMap(newMap);
@@ -59,7 +63,7 @@ export default function MiniQuizScreen({ navigation }) {
     };
 
     fetchQuestions();
-  }, [userId]);
+  }, [userId, i18n.language]);
 
   useEffect(() => {
     if (showResult) {
@@ -69,23 +73,23 @@ export default function MiniQuizScreen({ navigation }) {
 
         const max = questions.length * 10;
         const percentage = (score / max) * 100;
+
         let feedback = '';
-        if (percentage >= 80) feedback = 'Mükemmel bir performans!';
-        else if (percentage >= 60) feedback = 'Gayet iyi!';
-        else if (percentage >= 30) feedback = 'Geliştirmen gerek!';
-        else feedback = 'Daha çok çalışmalısın!';
+        if (percentage >= 80) feedback = 'perfectJob';
+        else if (percentage >= 60) feedback = 'goodJob';
+        else feedback = 'morePractice';
 
         try {
           await firestore()
             .collection('users')
             .doc(uid)
-            .collection('exam_results') // Sınavlar için
+            .collection('exam_results')
             .add({
-              type: 'Mini Sınav',
+              type: 'miniQuiz',
               mode: 'library',
-              score: score,
+              score,
               total: max,
-              feedback: feedback,
+              feedback,
               date: firestore.FieldValue.serverTimestamp(),
             });
 
@@ -93,22 +97,36 @@ export default function MiniQuizScreen({ navigation }) {
         } catch (err) {
           console.error('❌ Firestore kayıt hatası:', err);
         }
+
+        Tts.stop();
+        Tts.speak(feedback, { language: getLocaleCode(i18n.language) });
       };
 
       saveResult();
     }
-  }, [showResult, score, questions.length]);
+  }, [showResult, score, questions.length, i18n.language, t]);
 
-  const shuffleArray = (array) => [...array].sort(() => Math.random() - 0.5);
+  const shuffleArray = array => [...array].sort(() => Math.random() - 0.5);
+
+  const getLocaleCode = lang => {
+    switch (lang) {
+      case 'tr': return 'tr-TR';
+      case 'en': return 'en-US';
+      case 'es': return 'es-ES';
+      case 'zh': return 'zh-CN';
+      default: return 'en-US';
+    }
+  };
 
   const speak = (text) => {
     Tts.stop();
-    Tts.speak(text, { language: 'tr-TR' });
+    Tts.speak(text, { language: getLocaleCode(i18n.language) });
   };
 
   const handleSelect = (option) => {
     const currentQuestion = questions[current];
-    const isCorrect = option === currentQuestion.label_tr;
+    const correct = currentQuestion[`label_${i18n.language}`];
+    const isCorrect = option === correct;
 
     if (selectedAnswers[current] !== undefined) return;
 
@@ -130,25 +148,18 @@ export default function MiniQuizScreen({ navigation }) {
   };
 
   if (questions.length === 0) {
-    return <View style={styles.center}><Text>Yükleniyor...</Text></View>;
+    return <View style={styles.center}><Text>{t('loading')}</Text></View>;
   }
 
   if (showResult) {
     const max = questions.length * 10;
-    const percentage = (score / max) * 100;
-    let feedback = '';
-    if (percentage >= 80) feedback = 'Mükemmel bir performans!';
-    else if (percentage >= 60) feedback = 'Gayet iyi!';
-    else if (percentage >= 30) feedback = 'Geliştirmen gerek!';
-    else feedback = 'Daha çok çalışmalısın!';
-
-    speak(feedback);
+    const feedback = score >= 0 ? (score / max) >= 0.8 ? 'perfectJob' : (score / max) >= 0.6 ? 'goodJob' : 'morePractice' : '';
 
     return (
       <View style={styles.center}>
-        <Text style={styles.resultText}>🎉 Mini Sınav Bitti!</Text>
-        <Text style={styles.scoreText}>Puan: {score} / {max}</Text>
-        <Text style={styles.scoreText}>{feedback}</Text>
+        <Text style={styles.resultText}>{t('gameOver')}</Text>
+        <Text style={styles.scoreText}>{t('game_completed', { score })}</Text>
+        <Text style={styles.scoreText}>{t(feedback)}</Text>
 
         <View style={styles.resultButtons}>
           <TouchableOpacity
@@ -161,14 +172,14 @@ export default function MiniQuizScreen({ navigation }) {
               setQuestions(shuffleArray(questions));
             }}
           >
-            <Text style={styles.resultButtonText}>🔁 Tekrar Dene</Text>
+            <Text style={styles.resultButtonText}>{t('play_again')}</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
             style={[styles.resultButton, { backgroundColor: '#6c5ce7' }]}
             onPress={() => navigation.goBack()}
           >
-            <Text style={styles.resultButtonText}>🔙 Sınavlar Ekranına Dön</Text>
+            <Text style={styles.resultButtonText}>{t('backToHome')}</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -176,18 +187,26 @@ export default function MiniQuizScreen({ navigation }) {
   }
 
   const currentQuestion = questions[current];
-  const options = optionsMap[currentQuestion.label_tr] || [];
+  const currentLabel = currentQuestion[`label_${i18n.language}`];
+  const options = optionsMap[currentLabel] || [];
   const selected = selectedAnswers[current]?.selected;
 
   return (
     <ScrollView style={styles.container}>
-      <Text style={styles.title}>Soru {current + 1} / {questions.length}</Text>
+      <Text style={styles.title}>{t('question', { index: current + 1, total: questions.length })}</Text>
       <Image source={{ uri: currentQuestion.photoUrl }} style={styles.image} />
+
+      <TouchableOpacity
+        style={styles.soundButton}
+        onPress={() => speak(currentLabel)}
+      >
+        <Icon name="volume-high" size={30} color="#6c5ce7" />
+      </TouchableOpacity>
 
       <View style={styles.optionsContainer}>
         {options.map((option, index) => {
           const isSelected = selected === option;
-          const isCorrect = currentQuestion.label_tr === option;
+          const isCorrect = currentLabel === option;
           const showColor = selected !== undefined;
 
           let backgroundColor = '#dfe6e9';
@@ -204,7 +223,7 @@ export default function MiniQuizScreen({ navigation }) {
               onPress={() => handleSelect(option)}
               disabled={selected !== undefined}
             >
-              <Text style={styles.optionText}>{option}</Text>
+              <Text style={styles.optionText}>{t(`label_${option}`) || option}</Text>
             </TouchableOpacity>
           );
         })}
@@ -229,8 +248,9 @@ export default function MiniQuizScreen({ navigation }) {
 const styles = StyleSheet.create({
   container: { flex: 1, padding: 20, backgroundColor: '#f5f6fa' },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  title: { fontSize: 22, fontWeight: 'bold', marginBottom: 10, textAlign: 'center' },
+  title: { fontSize: 22, fontWeight: 'bold', marginBottom: 10, textAlign: 'center', color: '#6c5ce7' },
   image: { width: '100%', height: 200, resizeMode: 'contain', borderRadius: 12, backgroundColor: '#dfe6e9' },
+  soundButton: { alignItems: 'center', marginTop: 10 },
   optionsContainer: { marginTop: 20 },
   optionButton: {
     padding: 14,

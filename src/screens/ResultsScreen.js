@@ -37,11 +37,11 @@ export default function ResultsScreen({ navigation }) {
 
   const renderResult = ({ item }) => (
     <View style={styles.resultBox}>
-      <Text style={styles.type}>{item.type?.toUpperCase()}</Text>
+      <Text style={styles.type}>{t(`${item.type}`)}</Text>
       <Text style={styles.score}>
         {item.score}/{item.total}
       </Text>
-      {item.feedback && <Text style={styles.feedback}>{item.feedback}</Text>}
+      {item.feedback && <Text style={styles.feedback}>{t(`${item.feedback}`)}</Text>}
       <Text style={styles.date}>
         {new Date(item.date?.toDate()).toLocaleString()}
       </Text>
@@ -108,7 +108,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     elevation: 2,
   },
-  type: { fontSize: 16, fontWeight: 'bold' },
+  type: { fontSize: 16, fontWeight: 'bold', color: '#2d3436', },
   score: { fontSize: 16, color: '#0984e3' },
   feedback: {
     fontSize: 15,

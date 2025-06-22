@@ -12,15 +12,25 @@ import Voice from '@react-native-voice/voice';
 import firestore from '@react-native-firebase/firestore';
 import auth from '@react-native-firebase/auth';
 import Icon from 'react-native-vector-icons/Ionicons';
+import { useTranslation } from 'react-i18next';
 
 export default function PhotoSpeechGame({ route, navigation }) {
   const { mode } = route.params;
+  const { t, i18n } = useTranslation();
+
   const [questions, setQuestions] = useState([]);
   const [current, setCurrent] = useState(0);
   const [recognizedText, setRecognizedText] = useState('');
   const [listening, setListening] = useState(false);
   const [score, setScore] = useState(0);
   const [showResult, setShowResult] = useState(false);
+
+  const langCode = {
+    tr: 'tr-TR',
+    en: 'en-US',
+    es: 'es-ES',
+    zh: 'zh-CN',
+  }[i18n.language] || 'en-US';
 
   useEffect(() => {
     Voice.onSpeechResults = e => {
@@ -39,25 +49,27 @@ export default function PhotoSpeechGame({ route, navigation }) {
   useEffect(() => {
     const fetchData = async () => {
       const uid = auth().currentUser?.uid;
+      const labelKey = mode === 'library' ? `label_${i18n.language}` : 'label';
+
       const query = mode === 'library'
-        ? firestore().collection('users').doc(uid).collection('recognized_items').where('label_tr', '!=', '')
-        : firestore().collection('general_quiz').where('label_tr', '!=', '');
+        ? firestore().collection('users').doc(uid).collection('recognized_items').where(labelKey, '!=', '')
+        : firestore().collection('general_quiz').where(labelKey, '!=', '');
 
       const snapshot = await query.get();
-      const all = snapshot.docs.map(doc => doc.data()).filter(d => d.label_tr && (d.photoUrl || d.image_url));
+      const all = snapshot.docs.map(doc => doc.data()).filter(d => d[labelKey] && (d.photoUrl || d.image_url));
 
       const labels = new Set();
       const unique = [];
       for (const item of all) {
-        if (!labels.has(item.label_tr)) {
-          labels.add(item.label_tr);
+        if (!labels.has(item[labelKey])) {
+          labels.add(item[labelKey]);
           unique.push(item);
         }
       }
 
       const shuffled = unique.sort(() => Math.random() - 0.5).slice(0, 5);
       const formatted = shuffled.map(q => ({
-        label: q.label_tr,
+        label: q[labelKey],
         uri: q.photoUrl || q.image_url,
       }));
 
@@ -65,24 +77,23 @@ export default function PhotoSpeechGame({ route, navigation }) {
     };
 
     fetchData();
-  }, [mode]);
-
-  useEffect(() => {
-    if (showResult) {
-      saveResult();
-    }
-  }, [showResult, saveResult]);
-
+  }, [mode, i18n.language]);
 
   const startListening = async () => {
     setRecognizedText('');
     try {
       setListening(true);
-      await Voice.start('tr-TR');
+      await Voice.start(langCode);
     } catch (e) {
       console.error('Voice start error:', e);
     }
   };
+
+  const getFeedback = useCallback((puan) => {
+    if (puan >= 40) return 'feedback_perfect';
+    if (puan >= 25) return 'goodJob';
+    return 'feedback_bad';
+  }, []);
 
   const saveResult = useCallback(async () => {
     const uid = auth().currentUser?.uid;
@@ -94,7 +105,7 @@ export default function PhotoSpeechGame({ route, navigation }) {
         .doc(uid)
         .collection('game_results')
         .add({
-          type: 'Fotoğrafa Sesli Yanıt Oyunu',
+          type: 'photoSpeechGame',
           mode: mode,
           score: score,
           total: questions.length * 10,
@@ -106,18 +117,23 @@ export default function PhotoSpeechGame({ route, navigation }) {
     } catch (err) {
       console.error('❌ Firestore kayıt hatası:', err);
     }
-  }, [mode, score, questions.length]);
+  }, [mode, score, questions.length, getFeedback]);
+
+  useEffect(() => {
+    if (showResult) {
+      saveResult();
+    }
+  }, [showResult, saveResult]);
 
   const checkAnswer = useCallback((spoken) => {
     const expected = questions[current].label.toLowerCase();
     if (spoken.toLowerCase().includes(expected)) {
-        setScore(prev => prev + 10);
-        Alert.alert('✅ Doğru!', `Cevap: ${spoken}`);
+      setScore(prev => prev + 10);
+      Alert.alert('✅', `${t('correct')}: ${spoken}`);
     } else {
-        Alert.alert('❌ Yanlış', `Söylediğin: ${spoken}`);
+      Alert.alert('❌', `${t('you_said')}: ${spoken}`);
     }
-  }, [current, questions]);
-
+  }, [current, questions, t]);
 
   const goNext = () => {
     if (current + 1 >= questions.length) {
@@ -128,29 +144,18 @@ export default function PhotoSpeechGame({ route, navigation }) {
     }
   };
 
-  const getFeedback = (puan) => {
-    if (puan >= 40) return '🎯 Harika!';
-    if (puan >= 25) return '👍 Fena değil!';
-    return '🧠 Geliştirmen gerek.';
-  };
-
   if (questions.length === 0) {
-    return <View style={styles.center}><Text>Yükleniyor...</Text></View>;
+    return <View style={styles.center}><Text>{t('loading')}</Text></View>;
   }
 
   if (showResult) {
-    let yorum = '';
-    if (score >= 40) yorum = '🎯 Harika!';
-    else if (score >= 25) yorum = '👍 Fena değil!';
-    else yorum = '🧠 Geliştirmen gerek.';
-
     return (
       <View style={styles.center}>
-        <Text style={styles.resultTitle}>🎉 Oyun Bitti!</Text>
-        <Text style={styles.score}>Puan: {score} / {questions.length * 10}</Text>
-        <Text style={styles.feedback}>{yorum}</Text>
+        <Text style={styles.resultTitle}>{t('gameOver')}</Text>
+        <Text style={styles.score}>{t('score')}: {score} / {questions.length * 10}</Text>
+        <Text style={styles.feedback}>{t(getFeedback(score))}</Text>
         <TouchableOpacity style={styles.button} onPress={() => navigation.goBack()}>
-          <Text style={styles.buttonText}>Ana Sayfa</Text>
+          <Text style={styles.buttonText}>{t('goHome')}</Text>
         </TouchableOpacity>
       </View>
     );
@@ -160,7 +165,7 @@ export default function PhotoSpeechGame({ route, navigation }) {
 
   return (
     <ScrollView style={styles.container}>
-      <Text style={styles.title}>Soru {current + 1} / {questions.length}</Text>
+      <Text style={styles.title}>{t('question', { index: current + 1, total: questions.length })}</Text>
 
       <Image source={{ uri: currentQ.uri }} style={styles.image} />
 
@@ -169,11 +174,11 @@ export default function PhotoSpeechGame({ route, navigation }) {
       </TouchableOpacity>
 
       {recognizedText !== '' && (
-        <Text style={styles.recognizedText}>📢 Söylediğin: {recognizedText}</Text>
+        <Text style={styles.recognizedText}>{t('spoken', { text: recognizedText })}</Text>
       )}
 
       <TouchableOpacity style={styles.nextButton} onPress={goNext} disabled={recognizedText === ''}>
-        <Text style={styles.nextButtonText}>Sonraki</Text>
+        <Text style={styles.nextButtonText}>{t('next')}</Text>
       </TouchableOpacity>
     </ScrollView>
   );
@@ -182,7 +187,7 @@ export default function PhotoSpeechGame({ route, navigation }) {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f5f6fa', padding: 20 },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  title: { fontSize: 22, fontWeight: 'bold', textAlign: 'center', marginBottom: 10 },
+  title: { fontSize: 22, fontWeight: 'bold', textAlign: 'center', marginBottom: 40, color: '#6c5ce7' },
   image: { width: '100%', height: 250, borderRadius: 12, resizeMode: 'contain', marginBottom: 20 },
   voiceButton: { alignItems: 'center', marginBottom: 20 },
   recognizedText: { fontSize: 18, textAlign: 'center', color: '#2d3436', marginBottom: 10 },

@@ -30,14 +30,22 @@ export default function LibraryScreen({ navigation }) {
       const userId = auth().currentUser?.uid;
       if (!userId) throw new Error('No user session');
 
-      const userCollection = firestore()
+      const snapshot = await firestore()
         .collection('users')
         .doc(userId)
-        .collection('recognized_items');
+        .collection('recognized_items')
+        .orderBy('timestamp', 'desc')
+        .get();
 
-      const snapshot = await userCollection.orderBy('timestamp', 'desc').get();
+      const fetchedItems = snapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+          id: doc.id,
+          photoUrl: data.photoUrl,
+          label_en: data.label_en?.toLowerCase().trim() || '',
+        };
+      });
 
-      const fetchedItems = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       setItems(fetchedItems);
       setFilteredItems(fetchedItems);
     } catch (error) {
@@ -47,15 +55,24 @@ export default function LibraryScreen({ navigation }) {
     }
   };
 
-  useFocusEffect(
-    useCallback(() => {
-      fetchItems();
-    }, [])
-  );
+  useFocusEffect(useCallback(() => {
+    fetchItems();
+  }, []));
 
-  const speak = text => {
+  const speak = label_en => {
+    const getLocaleCode = lang => {
+      switch (lang) {
+        case 'tr': return 'tr-TR';
+        case 'en': return 'en-US';
+        case 'es': return 'es-ES';
+        case 'zh': return 'zh-CN';
+        default: return 'en-US';
+      }
+    };
+    const translationKey = `label_${label_en}`;
+    const spokenText = t(translationKey);
     Tts.stop();
-    Tts.speak(text, { language: i18n.language });
+    Tts.speak(spokenText, { language: getLocaleCode(i18n.language) });
   };
 
   const handleSearchAndSort = useCallback(() => {
@@ -63,22 +80,23 @@ export default function LibraryScreen({ navigation }) {
 
     if (searchText.trim()) {
       updatedItems = updatedItems.filter(item =>
-        (item[`label_${i18n.language}`] || '').toLowerCase().includes(searchText.toLowerCase())
+        t(`label_${item.label_en}`)?.toLowerCase().includes(searchText.toLowerCase())
       );
     }
 
     if (sortOrder === 'asc') {
       updatedItems.sort((a, b) =>
-        (a[`label_${i18n.language}`] || '').localeCompare(b[`label_${i18n.language}`] || '')
+        t(`label_${a.label_en}`).localeCompare(t(`label_${b.label_en}`))
       );
     } else if (sortOrder === 'desc') {
       updatedItems.sort((a, b) =>
-        (b[`label_${i18n.language}`] || '').localeCompare(a[`label_${i18n.language}`] || '')
+        t(`label_${b.label_en}`).localeCompare(t(`label_${a.label_en}`))
       );
     }
 
     setFilteredItems(updatedItems);
-  }, [items, searchText, sortOrder, i18n.language]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [items, searchText, sortOrder, i18n.language, t]);
 
   useEffect(() => {
     handleSearchAndSort();
@@ -94,8 +112,8 @@ export default function LibraryScreen({ navigation }) {
         />
       )}
       <View style={styles.labelRow}>
-        <Text style={styles.label}>{item[`label_${i18n.language}`] || item.label_en}</Text>
-        <TouchableOpacity onPress={() => speak(item[`label_${i18n.language}`] || item.label_en)}>
+        <Text style={styles.label}>{t(`label_${item.label_en}`)}</Text>
+        <TouchableOpacity onPress={() => speak(item.label_en)}>
           <Icon name="volume-high" size={22} color="#0984e3" />
         </TouchableOpacity>
       </View>
@@ -131,6 +149,10 @@ export default function LibraryScreen({ navigation }) {
               <Text style={styles.sortText}>{t('sortZA')}</Text>
             </TouchableOpacity>
           </View>
+
+          {filteredItems.length === 0 && (
+            <Text style={{ textAlign: 'center', color: '#636e72' }}>{t('noResults')}</Text>
+          )}
 
           <FlatList
             data={filteredItems}
@@ -214,7 +236,6 @@ const styles = StyleSheet.create({
     fontSize: 30,
     color: '#1e3a8a',
     alignSelf: 'center',
-    justifyContent: 'center',
     marginBottom: 15,
-  }
+  },
 });

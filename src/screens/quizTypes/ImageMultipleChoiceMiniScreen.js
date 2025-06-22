@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -11,8 +11,10 @@ import firestore from '@react-native-firebase/firestore';
 import auth from '@react-native-firebase/auth';
 import Icon from 'react-native-vector-icons/Ionicons';
 import Tts from 'react-native-tts';
+import { useTranslation } from 'react-i18next';
 
 export default function ImageMultipleChoiceMiniScreen({ navigation }) {
+  const { t, i18n } = useTranslation();
   const [questions, setQuestions] = useState([]);
   const [current, setCurrent] = useState(0);
   const [selectedAnswers, setSelectedAnswers] = useState({});
@@ -25,32 +27,33 @@ export default function ImageMultipleChoiceMiniScreen({ navigation }) {
       try {
         const snapshot = await firestore()
           .collection(`users/${userId}/recognized_items`)
-          .where('label_tr', '!=', '')
+          .where(`label_${i18n.language}`, '!=', '')
           .get();
 
-        const raw = snapshot.docs
-          .map(doc => doc.data())
-          .filter(item => item.label_tr && item.label_tr.trim() !== '');
+        const raw = snapshot.docs.map(doc => doc.data());
 
         const uniqueLabels = new Set();
         const filtered = [];
         for (const item of raw) {
-          if (!uniqueLabels.has(item.label_tr)) {
-            uniqueLabels.add(item.label_tr);
+          const key = item[`label_${i18n.language}`];
+          if (key && !uniqueLabels.has(key)) {
+            uniqueLabels.add(key);
             filtered.push(item);
           }
         }
 
         const shuffled = shuffleArray(filtered).slice(0, 5);
         const questionsData = shuffled.map(correctItem => {
-          const incorrectItems = filtered.filter(item => item.label_tr !== correctItem.label_tr);
+          const correctLabel = correctItem[`label_${i18n.language}`];
+          const correctUri = correctItem.photoUrl || correctItem.image_url;
+          const incorrectItems = filtered.filter(item => item[`label_${i18n.language}`] !== correctLabel);
           const options = shuffleArray([
             correctItem,
             ...shuffleArray(incorrectItems).slice(0, 5),
           ]);
           return {
-            label: correctItem.label_tr,
-            correctUri: correctItem.photoUrl || correctItem.image_url,
+            label: correctLabel,
+            correctUri: correctUri,
             options,
           };
         });
@@ -62,7 +65,7 @@ export default function ImageMultipleChoiceMiniScreen({ navigation }) {
     };
 
     fetchQuestions();
-  }, [userId]);
+  }, [userId, i18n.language]);
 
   useEffect(() => {
     if (showResult) {
@@ -71,7 +74,7 @@ export default function ImageMultipleChoiceMiniScreen({ navigation }) {
         if (!uid) return;
 
         const total = questions.length * 10;
-        const feedback = getFeedbackText(score);
+        const feedback = getFeedback(score, total);
 
         try {
           await firestore()
@@ -79,37 +82,47 @@ export default function ImageMultipleChoiceMiniScreen({ navigation }) {
             .doc(uid)
             .collection('exam_results')
             .add({
-              type: 'Resimli Mini Sınav',
+              type: 'imageMiniQuiz',
               mode: 'mini',
-              score: score,
-              total: total,
-              feedback: feedback,
+              score,
+              total,
+              feedback,
               date: firestore.FieldValue.serverTimestamp(),
             });
-
-          console.log('✅ Mini görsel şıklı sınav sonucu kaydedildi.');
         } catch (err) {
           console.error('❌ Firestore kayıt hatası:', err);
         }
+
+        Tts.stop();
+        Tts.speak(feedback, { language: getLocaleCode(i18n.language) });
       };
 
       saveResult();
     }
-  }, [showResult, score, questions.length]);
-
+  }, [showResult, score, questions.length, i18n.language, t, getFeedback]);
 
   const shuffleArray = array => [...array].sort(() => Math.random() - 0.5);
 
-  const speak = (text) => {
-    Tts.stop();
-    Tts.speak(text, { language: 'tr-TR' });
+  const getLocaleCode = lang => {
+    switch (lang) {
+      case 'tr': return 'tr-TR';
+      case 'en': return 'en-US';
+      case 'es': return 'es-ES';
+      case 'zh': return 'zh-CN';
+      default: return 'en-US';
+    }
   };
 
-  const getFeedbackText = (puan) => {
-    if (puan >= 40) return 'Mükemmel!';
-    if (puan >= 30) return 'İyi iş!';
-    if (puan >= 20) return 'Fena değil, daha iyisini yapabilirsin.';
-    return 'Geliştirmen gerek.';
+  const getFeedback = useCallback((score, total) => {
+    const percent = (score / total) * 100;
+    if (percent >= 80) return 'perfectJob';
+    if (percent >= 60) return 'goodJob';
+    return t('morePractice');
+  }, [t]);
+
+  const speak = (text) => {
+    Tts.stop();
+    Tts.speak(text, { language: getLocaleCode(i18n.language) });
   };
 
   const handleSelect = (selectedUri) => {
@@ -136,18 +149,17 @@ export default function ImageMultipleChoiceMiniScreen({ navigation }) {
   };
 
   if (questions.length === 0) {
-    return <View style={styles.center}><Text>Yükleniyor...</Text></View>;
+    return <View style={styles.center}><Text>{t('loading')}</Text></View>;
   }
 
   if (showResult) {
-    const feedback = getFeedbackText(score);
-    Tts.speak(feedback, { language: 'tr-TR' });
+    const feedback = getFeedback(score, questions.length * 10);
 
     return (
       <View style={styles.center}>
-        <Text style={styles.resultText}>🎉 Mini Sınav Bitti!</Text>
-        <Text style={styles.scoreText}>Puan: {score} / {questions.length * 10}</Text>
-        <Text style={styles.feedbackText}>{feedback}</Text>
+        <Text style={styles.resultText}>{t('gameOver')}</Text>
+        <Text style={styles.scoreText}>{t('game_completed', { score })}</Text>
+        <Text style={styles.feedbackText}>{t(feedback)}</Text>
 
         <View style={styles.resultButtons}>
           <TouchableOpacity
@@ -160,14 +172,14 @@ export default function ImageMultipleChoiceMiniScreen({ navigation }) {
               setQuestions(shuffleArray(questions));
             }}
           >
-            <Text style={styles.resultButtonText}>🔁 Tekrar Dene</Text>
+            <Text style={styles.resultButtonText}>{t('play_again')}</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
             style={[styles.resultButton, { backgroundColor: '#6c5ce7' }]}
             onPress={() => navigation.goBack()}
           >
-            <Text style={styles.resultButtonText}>🔙 Sınavlar Ekranına Dön</Text>
+            <Text style={styles.resultButtonText}>{t('backToHome')}</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -179,11 +191,11 @@ export default function ImageMultipleChoiceMiniScreen({ navigation }) {
 
   return (
     <ScrollView style={styles.container}>
-      <Text style={styles.title}>Soru {current + 1} / {questions.length}</Text>
+      <Text style={styles.title}>{t('question', { index: current + 1, total: questions.length })}</Text>
 
       <View style={styles.labelRow}>
-        <Text style={styles.labelText}>{currentQuestion.label}</Text>
-        <TouchableOpacity onPress={() => speak(currentQuestion.label)}>
+        <Text style={styles.labelText}>{t(`label_${currentQuestion.label}`) || currentQuestion.label}</Text>
+        <TouchableOpacity onPress={() => speak(t(`label_${currentQuestion.label}`) || currentQuestion.label)}>
           <Icon name="volume-high" size={24} color="#0984e3" />
         </TouchableOpacity>
       </View>
@@ -237,7 +249,7 @@ export default function ImageMultipleChoiceMiniScreen({ navigation }) {
 const styles = StyleSheet.create({
   container: { flex: 1, padding: 20, backgroundColor: '#f5f6fa' },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  title: { fontSize: 22, fontWeight: 'bold', marginBottom: 10, textAlign: 'center' },
+  title: { fontSize: 22, fontWeight: 'bold', marginBottom: 10, textAlign: 'center', color: '#0984e3' },
   labelRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, marginBottom: 10 },
   labelText: { fontSize: 20, fontWeight: 'bold', color: '#2d3436' },
   imageOptionsContainer: {
@@ -253,8 +265,8 @@ const styles = StyleSheet.create({
     margin: 6,
   },
   imageOption: {
-    width: 140,
-    height: 140,
+    width: 135,
+    height: 135,
     resizeMode: 'cover',
   },
   navContainer: {
