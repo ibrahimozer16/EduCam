@@ -1,52 +1,78 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, Image, StyleSheet, Dimensions, Alert, TouchableOpacity } from 'react-native';
-import DraggableFlatList from 'react-native-draggable-flatlist';
+import { View, Text, Image, StyleSheet, Dimensions, TouchableOpacity } from 'react-native';
 import firestore from '@react-native-firebase/firestore';
 import auth from '@react-native-firebase/auth';
 import Tts from 'react-native-tts';
 import Icon from 'react-native-vector-icons/Ionicons';
+import DraggableFlatList from 'react-native-draggable-flatlist';
+import { useTranslation } from 'react-i18next';
 
 const { width } = Dimensions.get('window');
 
-export default function ImageWordMatchScreen({ route }) {
+export default function ImageWordMatchScreen({ route, navigation }) {
   const { mode } = route.params;
-  const [items, setItems] = useState([]);
+  const { t, i18n } = useTranslation();
+
+  const [images, setImages] = useState([]);
+  const [labels, setLabels] = useState([]);
+  const [showResult, setShowResult] = useState(false);
+  const [score, setScore] = useState(0);
 
   useEffect(() => {
     const fetchData = async () => {
+      const lang = i18n.language;
       const query = mode === 'library'
-        ? firestore().collection('users').doc(auth().currentUser.uid).collection('recognized_items').where('label_tr', '!=', '')
-        : firestore().collection('general_quiz').where('label_tr', '!=', '');
-      const snapshot = await query.get();
+        ? firestore().collection('users').doc(auth().currentUser.uid).collection('recognized_items').where(`label_en`, '!=', '')
+        : firestore().collection('general_quiz').where(`label`, '!=', '');
 
+      const snapshot = await query.get();
       const selected = snapshot.docs
         .map(doc => doc.data())
-        .filter(i => i.label_tr && (i.photoUrl || i.image_url))
+        .filter(i => i[`label_${lang}`] && (i.photoUrl || i.image_url))
         .sort(() => Math.random() - 0.5)
         .slice(0, 5);
 
-      const formatted = selected.map((i, idx) => ({
-        id: `item-${idx}`,
-        label: i.label_tr,
+      const photos = selected.map((i, idx) => ({
+        id: `img-${idx}`,
         uri: i.photoUrl || i.image_url,
-        correctLabel: i.label_tr,
-      })).sort(() => Math.random() - 0.5);
+        label: i[`label_${lang}`],
+      }));
 
-      setItems(formatted);
+      const shuffledLabels = [...photos]
+        .map(i => ({ id: `label-${i.id}`, label: i.label }))
+        .sort(() => Math.random() - 0.5);
+
+      setImages(photos);
+      setLabels(shuffledLabels);
     };
 
     fetchData();
-  }, [mode]);
+  }, [mode, i18n.language]);
 
-  const getFeedback = (puan) => {
-    if (puan === 50) return '🎯 Mükemmel eşleştirme!';
-    if (puan >= 30) return '👍 Gayet başarılı!';
-    return '🧠 Daha dikkatli olmalısın.';
+  const speak = (text) => {
+    Tts.stop();
+    Tts.speak(text, { language: i18n.language === 'tr' ? 'tr-TR' : 'en-US' });
   };
 
-  const saveResult = async (puan) => {
+  const checkMatch = () => {
+    let correct = 0;
+    for (let i = 0; i < images.length; i++) {
+      if (labels[i]?.label === images[i]?.label) correct++;
+    }
+    const calculatedScore = correct * 10;
+    setScore(calculatedScore);
+    saveResult(calculatedScore);
+    setShowResult(true);
+  };
+
+  const saveResult = async (score) => {
     const uid = auth().currentUser?.uid;
     if (!uid) return;
+    const feedback = score >= 40
+      ? 'perfectJob'
+      : score >= 20
+      ? 'goodJob'
+      : 'morePractice';
 
     try {
       await firestore()
@@ -55,79 +81,119 @@ export default function ImageWordMatchScreen({ route }) {
         .collection('game_results')
         .add({
           type: 'imageWordMatchDemo',
-          mode: mode,
-          score: puan,
+          mode,
+          score,
           total: 50,
-          feedback: getFeedback(puan),
+          feedback,
           date: firestore.FieldValue.serverTimestamp(),
         });
-
-      console.log('✅ Görsel-Kelime eşleştirme sonucu kaydedildi.');
     } catch (err) {
       console.error('❌ Firestore kayıt hatası:', err);
     }
   };
 
-
-  const speak = t => {
-    Tts.stop();
-    Tts.speak(t, { language: 'tr-TR' });
+  const restart = () => {
+    setShowResult(false);
+    setScore(0);
+    setLabels([]);
+    setImages([]);
   };
 
-  const checkMatch = () => {
-    const correctCount = items.filter(it => it.label === it.correctLabel).length;
-    const score = correctCount * 10;
-    const isPerfect = correctCount === items.length;
+  if (showResult) {
+    const feedback = score >= 40
+      ? 'perfectJob'
+      : score >= 20
+      ? 'goodJob'
+      : 'morePractice';
 
-    items.forEach(it => speak(it.label));
-
-    saveResult(score); // sonucu Firestore'a kaydet
-
-    Alert.alert(
-      isPerfect ? 'Tebrikler!' : 'Sonuçlar',
-      `${isPerfect ? 'Hepsi doğru!' : `Doğru eşleşme sayısı: ${correctCount}`} \nPuan: ${score} / 50`,
-    );
-  };
-
-
-  const renderItem = ({ item, drag, isActive }) => (
-    <View style={[styles.row, isActive && { opacity: 0.8 }]}>
-      <Image source={{ uri: item.uri }} style={styles.image} />
-      <TouchableOpacity onLongPress={drag} disabled={isActive} style={styles.dropZone}>
-        <View style={styles.innerDropZone}>
-          <Text style={styles.dropText}>{item.label}</Text>
-        </View>
-        <TouchableOpacity onPress={() => speak(item.label)}>
-          <Icon name="volume-high" size={22} color="#0984e3" />
+    return (
+      <View style={styles.container}>
+        <Text style={styles.title}>{t('gameOver')}</Text>
+        <Text style={styles.scoreText}>{t('score')}: {score} / 50</Text>
+        <Text style={styles.feedback}>{t(feedback)}</Text>
+        <TouchableOpacity style={styles.returnButton} onPress={restart}>
+          <Text style={styles.returnText}>{t('play_again')}</Text>
         </TouchableOpacity>
-      </TouchableOpacity>
-    </View>
-  );
+        <TouchableOpacity style={styles.returnButton} onPress={() => navigation.navigate('Games')}>
+          <Text style={styles.returnText}>{t('backToGames')}</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>🎯 Görsel-Kelime Eşleştirme</Text>
-      <DraggableFlatList
-        data={items}
-        keyExtractor={it => it.id}
-        renderItem={renderItem}
-        onDragEnd={({ data }) => setItems(data)}
-      />
+      <Text style={styles.title}>🧩 {t('imageWordMatchDemo')}</Text>
+      <View style={styles.rowWrapper}>
+        <View style={styles.leftColumn}>
+          {images.map((item, index) => (
+            <View key={index} style={styles.imageRow}>
+              <Image source={{ uri: item.uri }} style={styles.image} />
+            </View>
+          ))}
+        </View>
+
+        <View style={styles.rightColumn}>
+          <DraggableFlatList
+            data={labels}
+            onDragEnd={({ data }) => setLabels(data)}
+            keyExtractor={item => item.id}
+            renderItem={({ item, drag, isActive }) => (
+              <TouchableOpacity
+                style={[styles.labelBox, isActive && { opacity: 0.8 }]}
+                onLongPress={drag}
+              >
+                <Text style={styles.labelText}>{item.label}</Text>
+                <TouchableOpacity onPress={() => speak(item.label)}>
+                  <Icon name="volume-high" size={20} color="#2d3436" />
+                </TouchableOpacity>
+              </TouchableOpacity>
+            )}
+          />
+        </View>
+      </View>
+
       <TouchableOpacity style={styles.checkButton} onPress={checkMatch}>
-        <Text style={styles.checkText}>Eşleştirmeyi Kontrol Et</Text>
+        <Text style={styles.checkText}>{t('check')}</Text>
       </TouchableOpacity>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex:1, padding:16, backgroundColor:'#ecf0f1' },
-  title: { fontSize:24,fontWeight:'bold',color:'#2d3436',textAlign:'center',marginBottom:16 },
-  row: { flexDirection:'row',alignItems:'center',backgroundColor:'#dfe6e9',borderRadius:12,padding:10,marginBottom:12,justifyContent:'space-between' },
-  image: { width:width*0.35, height:100, borderRadius:12, resizeMode:'cover' },
-  dropZone: { flexDirection:'row',alignItems:'center',backgroundColor:'#b2bec3',borderRadius:10,padding:8,width:width*0.5,justifyContent:'space-between' },
-  innerDropZone: { backgroundColor:'#74b9ff', padding:10, borderRadius:8, flex:1, marginRight:8 },
-  dropText: { fontSize:18,fontWeight:'bold',color:'#fff',textAlign:'center' },
-  checkButton: { backgroundColor:'#6c5ce7',marginTop:20,paddingVertical:14,paddingHorizontal:30,borderRadius:10,alignSelf:'center' },
-  checkText: { fontSize:18,fontWeight:'bold',color:'#fff' },
+  container: { flex: 1, padding: 16, backgroundColor: '#ecf0f1', justifyContent: 'center', alignItems: 'center' },
+  title: { fontSize: 22, fontWeight: 'bold', textAlign: 'center', marginBottom: 20, color: '#2d3436' },
+  rowWrapper: { flexDirection: 'row', flex: 1 },
+  leftColumn: { width: width * 0.45, justifyContent: 'space-between' },
+  rightColumn: { width: width * 0.45, marginLeft: 16 },
+  imageRow: { marginBottom: 12 },
+  image: { width: '100%', height: 100, borderRadius: 10 },
+  labelBox: {
+    backgroundColor: '#74b9ff',
+    borderRadius: 10,
+    padding: 12,
+    marginVertical: 33,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  labelText: { color: 'white', fontWeight: 'bold', fontSize: 16 },
+  checkButton: {
+    marginTop: 20,
+    backgroundColor: '#6c5ce7',
+    padding: 14,
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  checkText: { color: 'white', fontSize: 16, fontWeight: 'bold' },
+  scoreText: { fontSize: 20, marginTop: 10, color: '#0984e3', textAlign: 'center' },
+  feedback: { fontSize: 18, marginTop: 10, color: '#636e72', textAlign: 'center' },
+  returnButton: {
+    marginTop: 20,
+    backgroundColor: '#6c5ce7',
+    padding: 14,
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  returnText: { color: 'white', fontSize: 16, fontWeight: 'bold' },
 });

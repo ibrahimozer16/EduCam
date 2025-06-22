@@ -55,7 +55,7 @@ export default function ResultsScreen({ navigation }) {
         <Text style={styles.headerText}>{t('results')}</Text>
       </View>
 
-      <View style={{ flex: 1 }}>
+      <View style={{ flex: 5 }}>
         <Text style={styles.title}>{t('examResults')}</Text>
         <FlatList
           data={examResults}
@@ -66,7 +66,7 @@ export default function ResultsScreen({ navigation }) {
         />
       </View>
 
-      <View style={{ flex: 1 }}>
+      <View style={{ flex: 6 }}>
         <Text style={styles.title}>{t('gameResults')}</Text>
         <FlatList
           data={gameResults}
@@ -118,16 +118,17 @@ const styles = StyleSheet.create({
   date: { fontSize: 14, color: '#636e72' },
   empty: { textAlign: 'center', marginVertical: 10, color: 'gray' },
   button: {
-    backgroundColor: '#74b9ff',
-    padding: 10,
+    backgroundColor: '#628FF1FF',
+    padding: 12,
     borderRadius: 12,
-    marginBottom: 12,
     flexDirection: 'row',
-    alignSelf: 'center',
-    gap: 15,
+    alignItems: 'center',
+    gap: 12,
     justifyContent: 'center',
-    elevation: 4,
-    width: '70%',
+    position: 'absolute',
+    bottom: 12,
+    left: 16,
+    right: 16,
   },
   buttonText: {
     fontSize: 18,

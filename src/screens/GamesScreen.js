@@ -37,12 +37,12 @@ export default function GamesScreen({ navigation }) {
       icon: 'mic-outline',
       screen: 'PhotoSpeechMode',
     },
-    // {
-    //   id: '6',
-    //   title: t('imageWordMatchDemo'),
-    //   icon: 'swap-horizontal-outline',
-    //   screen: 'ImageWordMode',
-    // },
+    {
+      id: '6',
+      title: t('imageWordMatchDemo'),
+      icon: 'swap-horizontal-outline',
+      screen: 'ImageWordMode',
+    },
     // {
     //   id: '7',
     //   title: t('arrowMatchGameDemo'),

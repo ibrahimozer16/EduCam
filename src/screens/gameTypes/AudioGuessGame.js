@@ -27,7 +27,7 @@ export default function AudioGuessGame({ route, navigation }) {
   useEffect(() => {
     const fetchData = async () => {
       const uid = auth().currentUser?.uid;
-      const labelKey = mode === 'library' ? `label_${i18n.language}` : 'label';
+      const labelKey = mode === 'library' ? `label_en` : 'label';
 
       let query = mode === 'library'
         ? firestore().collection('users').doc(uid).collection('recognized_items').where(labelKey, '!=', '')
