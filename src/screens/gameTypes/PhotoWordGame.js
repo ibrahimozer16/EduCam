@@ -40,13 +40,13 @@ export default function PhotoWordGame({ route, navigation }) {
       for (const item of raw) {
         const key = mode === 'library'
           ? item.label_en?.trim().toLowerCase()
-          : item.label?.trim().toUpperCase();
+          : item.label?.trim().toLowerCase();
 
         if (key && !seen.has(key)) {
           seen.add(key);
           const translatedLabel = mode === 'library'
             ? t(`label_${key}`).toUpperCase()
-            : key.toUpperCase();
+            : t(`label_${key}`).toUpperCase();
 
           unique.push({
             photoUrl: item.photoUrl || item.image_url,

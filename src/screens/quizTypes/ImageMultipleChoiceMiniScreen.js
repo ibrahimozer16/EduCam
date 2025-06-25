@@ -27,7 +27,7 @@ export default function ImageMultipleChoiceMiniScreen({ navigation }) {
       try {
         const snapshot = await firestore()
           .collection(`users/${userId}/recognized_items`)
-          .where(`label_${i18n.language}`, '!=', '')
+          .where(`label_en`, '!=', '')
           .get();
 
         const raw = snapshot.docs.map(doc => doc.data());
@@ -35,7 +35,7 @@ export default function ImageMultipleChoiceMiniScreen({ navigation }) {
         const uniqueLabels = new Set();
         const filtered = [];
         for (const item of raw) {
-          const key = item[`label_${i18n.language}`];
+          const key = item[`label_en`];
           if (key && !uniqueLabels.has(key)) {
             uniqueLabels.add(key);
             filtered.push(item);
@@ -44,12 +44,12 @@ export default function ImageMultipleChoiceMiniScreen({ navigation }) {
 
         const shuffled = shuffleArray(filtered).slice(0, 5);
         const questionsData = shuffled.map(correctItem => {
-          const correctLabel = correctItem[`label_${i18n.language}`];
+          const correctLabel = correctItem[`label_en`];
           const correctUri = correctItem.photoUrl || correctItem.image_url;
-          const incorrectItems = filtered.filter(item => item[`label_${i18n.language}`] !== correctLabel);
+          const incorrectItems = filtered.filter(item => item[`label_en`] !== correctLabel);
           const options = shuffleArray([
             correctItem,
-            ...shuffleArray(incorrectItems).slice(0, 5),
+            ...shuffleArray(incorrectItems).slice(0, 3),
           ]);
           return {
             label: correctLabel,

@@ -21,21 +21,35 @@ export default function ImageWordMatchScreen({ route, navigation }) {
   useEffect(() => {
     const fetchData = async () => {
       const lang = i18n.language;
-      const query = mode === 'library'
-        ? firestore().collection('users').doc(auth().currentUser.uid).collection('recognized_items').where(`label_en`, '!=', '')
-        : firestore().collection('general_quiz').where(`label`, '!=', '');
+      const uid = auth().currentUser?.uid;
+      const isLibrary = mode === 'library';
+      const labelKey = isLibrary ? 'label_en' : 'label';
+
+      const query = isLibrary
+        ? firestore().collection('users').doc(uid).collection('recognized_items').where(labelKey, '!=', '')
+        : firestore().collection('general_quiz').where(labelKey, '!=', '');
 
       const snapshot = await query.get();
-      const selected = snapshot.docs
+      const allData = snapshot.docs
         .map(doc => doc.data())
-        .filter(i => i[`label_${lang}`] && (i.photoUrl || i.image_url))
-        .sort(() => Math.random() - 0.5)
-        .slice(0, 5);
+        .filter(d => d[labelKey] && (d.photoUrl || d.image_url));
+
+      const labelSet = new Set();
+      const uniqueData = [];
+      for (const item of allData) {
+        const key = item[labelKey]?.toLowerCase();
+        if (!labelSet.has(key)) {
+          labelSet.add(key);
+          uniqueData.push(item);
+        }
+      }
+
+      const selected = uniqueData.sort(() => Math.random() - 0.5).slice(0, 5);
 
       const photos = selected.map((i, idx) => ({
         id: `img-${idx}`,
         uri: i.photoUrl || i.image_url,
-        label: i[`label_${lang}`],
+        label: i[labelKey].toLowerCase(),
       }));
 
       const shuffledLabels = [...photos]
@@ -51,7 +65,8 @@ export default function ImageWordMatchScreen({ route, navigation }) {
 
   const speak = (text) => {
     Tts.stop();
-    Tts.speak(text, { language: i18n.language === 'tr' ? 'tr-TR' : 'en-US' });
+    const spokenText = mode === 'library' ? t(`label_${text}`) : text;
+    Tts.speak(spokenText, { language: i18n.language === 'tr' ? 'tr-TR' : 'en-US' });
   };
 
   const checkMatch = () => {
@@ -68,11 +83,7 @@ export default function ImageWordMatchScreen({ route, navigation }) {
   const saveResult = async (score) => {
     const uid = auth().currentUser?.uid;
     if (!uid) return;
-    const feedback = score >= 40
-      ? 'perfectJob'
-      : score >= 20
-      ? 'goodJob'
-      : 'morePractice';
+    const feedback = score >= 40 ? 'perfectJob' : score >= 20 ? 'goodJob' : 'morePractice';
 
     try {
       await firestore()
@@ -100,11 +111,7 @@ export default function ImageWordMatchScreen({ route, navigation }) {
   };
 
   if (showResult) {
-    const feedback = score >= 40
-      ? 'perfectJob'
-      : score >= 20
-      ? 'goodJob'
-      : 'morePractice';
+    const feedback = score >= 40 ? 'perfectJob' : score >= 20 ? 'goodJob' : 'morePractice';
 
     return (
       <View style={styles.container}>
@@ -143,7 +150,9 @@ export default function ImageWordMatchScreen({ route, navigation }) {
                 style={[styles.labelBox, isActive && { opacity: 0.8 }]}
                 onLongPress={drag}
               >
-                <Text style={styles.labelText}>{item.label}</Text>
+                <Text style={styles.labelText}>
+                  { t(`label_${item.label}`) }
+                </Text>
                 <TouchableOpacity onPress={() => speak(item.label)}>
                   <Icon name="volume-high" size={20} color="#2d3436" />
                 </TouchableOpacity>

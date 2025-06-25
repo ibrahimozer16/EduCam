@@ -32,6 +32,26 @@ export default function PhotoSpeechGame({ route, navigation }) {
     zh: 'zh-CN',
   }[i18n.language] || 'en-US';
 
+  const normalize = str =>
+    str?.toLowerCase().replace(/[^a-zA-ZğüşöçıİĞÜŞÖÇ\s]/g, '').trim();
+
+  const checkAnswer = useCallback((spoken) => {
+    if (!questions[current] || !questions[current].original) return;
+
+    const expected = normalize(questions[current].original);
+    const spokenNorm = normalize(spoken);
+
+    console.log('Expected:', expected);
+    console.log('Spoken:', spokenNorm);
+
+    if (spokenNorm.includes(expected)) {
+      setScore(prev => prev + 10);
+      Alert.alert('✅', `${t('correct')}: ${spoken}`);
+    } else {
+      Alert.alert('❌', `${t('you_said')}: ${spoken}`);
+    }
+  }, [current, questions, t]);
+
   useEffect(() => {
     Voice.onSpeechResults = e => {
       const text = e.value[0];
@@ -49,35 +69,38 @@ export default function PhotoSpeechGame({ route, navigation }) {
   useEffect(() => {
     const fetchData = async () => {
       const uid = auth().currentUser?.uid;
-      const labelKey = mode === 'library' ? `label_en` : 'label';
-
       const query = mode === 'library'
-        ? firestore().collection('users').doc(uid).collection('recognized_items').where(labelKey, '!=', '')
-        : firestore().collection('general_quiz').where(labelKey, '!=', '');
+        ? firestore().collection('users').doc(uid).collection('recognized_items').where('label_en', '!=', '')
+        : firestore().collection('general_quiz').where('label', '!=', '');
 
       const snapshot = await query.get();
-      const all = snapshot.docs.map(doc => doc.data()).filter(d => d[labelKey] && (d.photoUrl || d.image_url));
+      const all = snapshot.docs.map(doc => doc.data()).filter(d => (d.label_en || d.label) && (d.photoUrl || d.image_url));
 
       const labels = new Set();
       const unique = [];
       for (const item of all) {
-        if (!labels.has(item[labelKey])) {
-          labels.add(item[labelKey]);
+        const key = item.label_en || item.label;
+        if (!labels.has(key)) {
+          labels.add(key);
           unique.push(item);
         }
       }
 
       const shuffled = unique.sort(() => Math.random() - 0.5).slice(0, 5);
-      const formatted = shuffled.map(q => ({
-        label: q[labelKey],
-        uri: q.photoUrl || q.image_url,
-      }));
+      const formatted = shuffled.map(q => {
+        const engKey = q.label_en || q.label;
+        return {
+          label: i18n.t('label_' + engKey.trim().toLowerCase()), // Kullanıcıya gösterilen
+          original: i18n.t('label_' + engKey.trim().toLowerCase()), // Kullanıcının söylemesini beklediğimiz dilde cevap
+          uri: q.photoUrl || q.image_url,
+        };
+      });
 
       setQuestions(formatted);
     };
 
     fetchData();
-  }, [mode, i18n.language]);
+  }, [mode, i18n]);
 
   const startListening = async () => {
     setRecognizedText('');
@@ -124,16 +147,6 @@ export default function PhotoSpeechGame({ route, navigation }) {
       saveResult();
     }
   }, [showResult, saveResult]);
-
-  const checkAnswer = useCallback((spoken) => {
-    const expected = questions[current].label.toLowerCase();
-    if (spoken.toLowerCase().includes(expected)) {
-      setScore(prev => prev + 10);
-      Alert.alert('✅', `${t('correct')}: ${spoken}`);
-    } else {
-      Alert.alert('❌', `${t('you_said')}: ${spoken}`);
-    }
-  }, [current, questions, t]);
 
   const goNext = () => {
     if (current + 1 >= questions.length) {
