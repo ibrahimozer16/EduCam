@@ -1,6 +1,6 @@
 # 📱 EduCam – Çocuklar İçin Eğitici Görsel Tanıma Uygulaması
 
-Bu proje, çocukların görsel, işitsel ve dil gelişimini desteklemek amacıyla geliştirilen, yapay zekâ destekli bir mobil eğitim uygulamasıdır. React Native CLI ile geliştirilen uygulama, çevrimdışı çalışan nesne tanıma modeli, çoklu dil desteği, eğitici sınav ve oyunlarla donatılmıştır.
+Bu proje, çocukların görsel, işitsel ve dil gelişimini desteklemek amacıyla geliştirilen, yapay zekâ destekli bir mobil eğitim uygulamasıdır. React Native CLI ile geliştirilen uygulama, nesne tanıma modeli, çoklu dil desteği, eğitici sınav ve oyunlarla donatılmıştır.
 
 ## 🚀 Temel Özellikler
 
@@ -31,19 +31,25 @@ Bu proje, çocukların görsel, işitsel ve dil gelişimini desteklemek amacıyl
 ### Adımlar:
 ```bash
 git clone https://github.com/ibrahimozer16/educam.git
+```
+
+```bash
 cd educam
 npm install
+```
 
 - Metro için
+```bash
 npx react-native start --reset-cache
+```
 
--Android başlatmak için
+- Android başlatmak için
+```bash
 npx react-native run-android
-
 ```
 
 ## Projenin Videosu
-
+https://www.youtube.com/watch?v=sTe-dEjaMQs
 ## Geliştirici
 İbrahim Özer
 
